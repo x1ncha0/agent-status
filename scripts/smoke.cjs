@@ -52,6 +52,28 @@ app.whenReady().then(async () => {
         report.checks.push(`${agent}: ${hook} -> ${status}, PowerShell/file/IPC/DOM`);
       }
     }
+    for (const [hook, tool, id, status] of [
+      ['PreToolUse', 'request_user_input', 'question', 'stuck'],
+      ['PostToolUse', 'Bash', 'parallel-tool', 'stuck'],
+      ['PostToolUse', 'request_user_input', 'question', 'working'],
+      ['Stop', '', '', 'available']
+    ]) {
+      await fs.mkdir(path.join(root, 'events/codex'), { recursive: true });
+      await fs.writeFile(path.join(root, 'events/codex', `${require('node:crypto').randomUUID()}.json`), JSON.stringify({
+        agent: 'codex', session_id: 'smoke-session', hook_event_name: hook, tool_name: tool, tool_use_id: id, timestamp: Date.now()
+      }));
+      await until(() => win.webContents.executeJavaScript(`document.querySelector('#codex .dot').className === 'dot ${status}'`));
+      if (status === 'stuck') {
+        assert.ok((await win.webContents.executeJavaScript("document.getElementById('codex').title")).includes('Cần bạn can thiệp'));
+      }
+      report.checks.push(`codex: ${hook}/${tool} -> ${status}, question and parallel tool`);
+    }
+    const colors = await win.webContents.executeJavaScript(`['available','working','stuck'].map(status => {
+      const dot = document.createElement('span'); dot.className = 'dot ' + status;
+      document.body.appendChild(dot); const color = getComputedStyle(dot).backgroundColor; dot.remove(); return color;
+    })`);
+    assert.deepEqual(colors, ['rgb(74, 222, 128)', 'rgb(250, 204, 21)', 'rgb(248, 113, 113)']);
+    report.checks.push('Green=ready, yellow=thinking/working, red=needs user; Vietnamese tooltip');
     await fs.writeFile(path.join(root, 'window.png'), (await win.webContents.capturePage()).toPNG());
     report.screenshot = path.join(root, 'window.png');
   } catch (error) { report.errors.push(error.stack); process.exitCode = 1; }

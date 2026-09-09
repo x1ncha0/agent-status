@@ -1,5 +1,19 @@
 # Kết quả kiểm thử
 
+## Bản sửa 10/09/2026
+
+- `npm run check`: qua. `npm test`: 13/13 tests qua.
+- `npm run smoke`: qua, gồm màu xanh/vàng/đỏ, tooltip tiếng Việt, approval/input/recovery và câu hỏi còn chờ khi tool khác hoàn tất.
+- Test khôi phục: event được ghi trước lúc mở monitor vẫn khôi phục nếu CLI còn chạy; restart giữa câu hỏi vẫn đỏ; trả lời về vàng; process đóng hoặc PID đã tái sử dụng không giữ trạng thái cũ. Test lỗi đọc process giữ event để retry, không tự chuyển đỏ.
+- Bỏ timeout chuyển Working thành Stuck; tác vụ im lặng lâu vẫn vàng. API StopFailure là lượt đã dừng, không tự coi là yêu cầu can thiệp.
+- Trên máy thật, hook Codex đã được trust (khác kết luận chưa xác minh của bản 09/09 bên dưới). Đã nhìn thấy cửa sổ bản cũ giữ đỏ trong khi Codex đang chạy; bản cũ không có metadata tiến trình để loại session đã đóng và bỏ event trước startup.
+- Đã cập nhật writer tại `%LOCALAPPDATA%\AgentStatus\Write-AgentEvent.ps1`, giữ backup `.before-status-fix.bak`, không đổi cấu hình/trust. Hook thật của phiên Codex hiện tại ghi đúng PID và thời điểm tạo process.
+- `electron scripts/verify-live.cjs` chạy trên desktop thật: Codex `observed: true`, `status: working`, DOM `dot working`. Report và ảnh ở `.test-data/live/`. Đã kiểm tra pipeline hook thật → monitor → IPC → DOM, không cần mở lại Codex.
+- `npm run dist`: qua; đã mở lại `release/AgentStatus.exe` mới trên desktop. Native window visible, 110 × 55 pixel, không caption/Taskbar button. Snapshot được khôi phục trong process mới; kiểm tra quyền phát sinh trong lúc chạy lệnh xác minh đã làm đèn đỏ, sau tool hoàn tất đã trở lại vàng (ảnh `.test-data/live-packaged-working.png`). SHA256 khớp executable.
+- Approval và câu hỏi được kiểm tra bằng event fixtures; chưa có thử nghiệm người dùng giữ/trả lời prompt thật trong lượt kiểm thử này. Giới hạn độ chính xác của hook approval/input ghi trong README.
+
+Phần dưới là kết quả lịch sử của bản 09/09, trước bản sửa này.
+
 Ngày 09/09/2026, Windows `10.0.26200`, Node.js `22.15.0`, Electron `44.3.0`.
 
 - `npm run check`: qua.

@@ -1,5 +1,15 @@
 # Codex CLI → Claude Code
 
+## 2026-09-10 — codex: sửa nhận diện và ý nghĩa đèn
+
+Status: ready
+
+Hook Codex trên máy đã được trust và phát event thật; ghi chú chưa trust bên dưới đã cũ. Bản cũ bỏ event trước startup, không khôi phục trạng thái và không loại session theo tiến trình, có thể giữ đỏ từ phiên đã đóng.
+
+Đã thêm PID/thời điểm tạo process và tool_use_id vào writer; snapshot metadata được giữ atomically để khôi phục phiên còn chạy, loại PID chết/tái sử dụng. Giữ câu hỏi chưa trả lời qua activity của tool khác. Bỏ timeout làm đèn đỏ; tooltip xanh = sẵn sàng/đã xong, vàng = thinking/làm việc, đỏ = cần cấp quyền/trả lời.
+
+13 tests, TypeScript và Electron smoke qua. Live Codex hiện tại đã đi qua hook → monitor → IPC → DOM vàng trong `scripts/verify-live.cjs`. Writer đã cập nhật tại LOCALAPPDATA, có backup, không thay trust/config. README/VERIFICATION ghi coverage và giới hạn. Approval/input live vẫn cần kiểm tra bằng tương tác thật; không coi fixture là live.
+
 ## 2026-09-09 — codex
 
 Status: ready

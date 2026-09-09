@@ -6,7 +6,8 @@ function render(states: AgentView[]): void {
   for (const state of states) {
     const element = document.getElementById(state.agent);
     if (!element) continue;
-    element.title = `${state.observed ? state.status : 'Chưa nhận event'} — ${state.reason}`;
+    const labels = { available: 'Xanh: Sẵn sàng / đã xong', working: 'Vàng: Đang suy nghĩ / làm việc', stuck: 'Đỏ: Cần bạn can thiệp' };
+    element.title = `${state.observed ? labels[state.status] : 'Chưa kết nối'} — ${state.reason}`;
     element.setAttribute('aria-label', `${state.agent}: ${element.title}`);
     element.querySelector('.dot')!.className = `dot ${state.observed ? state.status : 'unobserved'}`;
   }

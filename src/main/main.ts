@@ -1,5 +1,5 @@
 import { app, ipcMain, Tray } from 'electron';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { createWindow, showWindow } from './window';
 import { createTray } from './tray';
@@ -13,15 +13,9 @@ app.setPath('userData', path.join(dataDir, 'electron'));
 let tray: Tray;
 if (!app.requestSingleInstanceLock()) app.quit();
 else void app.whenReady().then(() => {
-  let timeoutMs = 0;
-  try {
-    const config = JSON.parse(readFileSync(path.join(dataDir, 'config.json'), 'utf8'));
-    if (typeof config.noProgressMinutes === 'number' && Number.isFinite(config.noProgressMinutes) && config.noProgressMinutes >= 1)
-      timeoutMs = config.noProgressMinutes * 60000;
-  } catch { /* Timeout mặc định tắt. */ }
   const monitors = [
-    new FileMonitor(path.join(dataDir, 'events/claude'), 'claude', classifyClaude, timeoutMs),
-    new FileMonitor(path.join(dataDir, 'events/codex'), 'codex', classifyCodex, timeoutMs)
+    new FileMonitor(path.join(dataDir, 'events/claude'), 'claude', classifyClaude),
+    new FileMonitor(path.join(dataDir, 'events/codex'), 'codex', classifyCodex)
   ];
   const snapshot = () => monitors.map(monitor => monitor.snapshot());
   ipcMain.handle('status:get', snapshot);
@@ -36,7 +30,8 @@ else void app.whenReady().then(() => {
     if (serialized !== previous && !win.isDestroyed()) {
       previous = serialized;
       win.webContents.send('status:changed', states);
-      tray.setToolTip(states.map(s => `${s.agent}: ${s.observed ? s.status : 'Chưa nhận event'}`).join('\n'));
+      const labels = { available: 'Sẵn sàng', working: 'Đang suy nghĩ / làm việc', stuck: 'Cần bạn can thiệp' };
+      tray.setToolTip(states.map(s => `${s.agent}: ${s.observed ? labels[s.status] : 'Chưa kết nối'}`).join('\n'));
     }
   };
   const timer = setInterval(() => void tick(), 500);
