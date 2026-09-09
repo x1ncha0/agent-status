@@ -1,5 +1,9 @@
 # Agent Status
 
+[![Release](https://img.shields.io/github/v/release/x1ncha0/agent-status?label=b%E1%BA%A3n%20m%E1%BB%9Bi%20nh%E1%BA%A5t&color=2ea44f)](https://github.com/x1ncha0/agent-status/releases/latest)
+[![Lượt tải](https://img.shields.io/github/downloads/x1ncha0/agent-status/total?label=l%C6%B0%E1%BB%A3t%20t%E1%BA%A3i&color=blue)](https://github.com/x1ncha0/agent-status/releases)
+[![Nền tảng](https://img.shields.io/badge/n%E1%BB%81n%20t%E1%BA%A3ng-Windows%2010%2F11%20x64-0078d4?logo=windows&logoColor=white)](#chạy-và-build)
+
 Utility Windows local hiển thị trạng thái **Claude Code** và **Codex CLI** trong cửa sổ `110 × 55` DIP, luôn nổi, kéo được, không chiếm Taskbar. Tray có Show/Hide, Exit và Start with Windows.
 
 | Đèn | Ý nghĩa |
@@ -15,8 +19,8 @@ Utility Windows local hiển thị trạng thái **Claude Code** và **Codex CLI
 
 [![Tải AgentStatus.exe](https://img.shields.io/badge/T%E1%BA%A3i-AgentStatus.exe-2ea44f?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/x1ncha0/agent-status/releases/latest/download/AgentStatus.exe)
 
-Portable, không cần cài đặt, không cần Node.js. Link trên luôn trỏ tới bản mới nhất.
-Xem toàn bộ bản phát hành và ghi chú tại [Releases](https://github.com/x1ncha0/agent-status/releases).
+Portable, không cần cài đặt, không cần Node.js. Link trên luôn trỏ tới bản mới nhất nên không cần sửa mỗi lần phát hành.
+Xem toàn bộ bản phát hành và ghi chú thay đổi tại [Releases](https://github.com/x1ncha0/agent-status/releases).
 
 Đối chiếu checksum trước khi chạy, so với `AgentStatus.exe.sha256` đi kèm trong cùng bản phát hành:
 
