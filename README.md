@@ -3,6 +3,7 @@
 [![Release](https://img.shields.io/github/v/release/x1ncha0/agent-status?label=b%E1%BA%A3n%20m%E1%BB%9Bi%20nh%E1%BA%A5t&color=2ea44f)](https://github.com/x1ncha0/agent-status/releases/latest)
 [![Lượt tải](https://img.shields.io/github/downloads/x1ncha0/agent-status/total?label=l%C6%B0%E1%BB%A3t%20t%E1%BA%A3i&color=blue)](https://github.com/x1ncha0/agent-status/releases)
 [![Nền tảng](https://img.shields.io/badge/n%E1%BB%81n%20t%E1%BA%A3ng-Windows%2010%2F11%20x64-0078d4?logo=windows&logoColor=white)](#chạy-và-build)
+[![Giấy phép](https://img.shields.io/github/license/x1ncha0/agent-status?label=gi%E1%BA%A5y%20ph%C3%A9p)](LICENSE)
 
 Utility Windows local hiển thị trạng thái **Claude Code** và **Codex CLI** trong cửa sổ `110 × 55` DIP, luôn nổi, kéo được, không chiếm Taskbar. Tray có Show/Hide, Exit và Start with Windows.
 
