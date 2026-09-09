@@ -1,6 +1,6 @@
 {
   "name": "agent-status",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Local floating status indicators for Claude Code and Codex CLI",
   "author": "Agent Status",
   "license": "MIT",
