@@ -24,7 +24,7 @@ Xem toàn bộ bản phát hành và ghi chú tại [Releases](https://github.co
 (Get-FileHash AgentStatus.exe -Algorithm SHA256).Hash
 ```
 
-Repo đang ở chế độ private nên tải qua trình duyệt cần đăng nhập GitHub. Dòng lệnh:
+Hoặc tải bằng dòng lệnh:
 
 ```powershell
 gh release download --repo x1ncha0/agent-status --pattern "AgentStatus.exe"
