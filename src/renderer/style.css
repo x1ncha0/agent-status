@@ -1,0 +1,9 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+body { color: #e9edf3; font: 10px 'Segoe UI', sans-serif; user-select: none; }
+main { width: 110px; height: 55px; border: 1px solid #ffffff26; border-radius: 10px; background: #20252eed; display: flex; align-items: center; justify-content: space-evenly; -webkit-app-region: drag; }
+.agent { width: 45px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #4ade80; }
+.working { background: #facc15; }
+.stuck { background: #f87171; }
+.unobserved { background: transparent; border: 1px solid #97a2b5; }

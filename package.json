@@ -1,0 +1,48 @@
+{
+  "name": "agent-status",
+  "version": "1.0.0",
+  "description": "Local floating status indicators for Claude Code and Codex CLI",
+  "author": "Agent Status",
+  "license": "MIT",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "check": "tsc --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "build": "tsc && tsc -p tsconfig.renderer.json && node scripts/copy-assets.cjs",
+    "start": "npm run build && electron .",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "smoke": "npm run build && electron scripts/smoke.cjs",
+    "dist": "npm run build && electron-builder --win portable --x64 && node scripts/package-files.cjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "electron": "^44.3.0",
+    "electron-builder": "^26.0.0",
+    "typescript": "^5.9.0"
+  },
+  "build": {
+    "appId": "local.agentstatus.app",
+    "productName": "Agent Status",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "!dist/tests/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "integration",
+        "to": "integration"
+      }
+    ],
+    "win": {
+      "target": "portable",
+      "executableName": "AgentStatus",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "AgentStatus.exe"
+    }
+  }
+}
