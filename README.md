@@ -11,6 +11,27 @@ Utility Windows local hiển thị trạng thái **Claude Code** và **Codex CLI
 
 Đỏ không dùng để suy đoán agent bị treo. Cấu hình `noProgressMinutes` cũ không còn tác dụng. Lỗi tool riêng lẻ vẫn là đang làm việc; lượt kết thúc vì API error trở về rảnh và tooltip ghi lý do.
 
+## Tải về
+
+[![Tải AgentStatus.exe](https://img.shields.io/badge/T%E1%BA%A3i-AgentStatus.exe-2ea44f?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/x1ncha0/agent-status/releases/latest/download/AgentStatus.exe)
+
+Portable, không cần cài đặt, không cần Node.js. Link trên luôn trỏ tới bản mới nhất.
+Xem toàn bộ bản phát hành và ghi chú tại [Releases](https://github.com/x1ncha0/agent-status/releases).
+
+Đối chiếu checksum trước khi chạy, so với `AgentStatus.exe.sha256` đi kèm trong cùng bản phát hành:
+
+```powershell
+(Get-FileHash AgentStatus.exe -Algorithm SHA256).Hash
+```
+
+Repo đang ở chế độ private nên tải qua trình duyệt cần đăng nhập GitHub. Dòng lệnh:
+
+```powershell
+gh release download --repo x1ncha0/agent-status --pattern "AgentStatus.exe"
+```
+
+Sau khi tải, chạy trực tiếp rồi cài integration theo mục dưới. Khi cập nhật lên bản mới, tắt Agent Status đang chạy trước khi ghi đè file.
+
 ## Chạy và build
 
 Windows 10/11 x64; Node.js 22+ để phát triển. Phiên bản CLI đã kiểm tra trên máy: Claude Code `2.1.247`, Codex `0.153.4`.
