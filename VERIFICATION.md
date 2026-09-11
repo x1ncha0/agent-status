@@ -3,7 +3,8 @@
 ## Bản 1.0.3 — hook terminal và resize, 10/09/2026
 
 - `npm run check`: qua. `npm test`: 16/16 tests qua, gồm migrate hook `-WindowStyle Hidden`, gộp bản trùng, giữ hook khác / Trust và truyền stdin đến writer sau migration. Bổ sung khôi phục vị trí cũ, kích thước mới, dữ liệu sai và giới hạn theo màn hình.
-- Smoke test Electron đã qua kéo chuột thật ở cạnh phải, cạnh dưới, góc trên trái và thu nhỏ bằng góc dưới phải. Lưu / khôi phục bounds qua cửa sổ mới, bố cục lấp đầy viewport, kích thước tối thiểu 90 × 45 DIP và pipeline đèn cả hai agent đều qua. Đã xem ảnh ở kích thước tối thiểu và sau resize.
+- Smoke test Electron đã qua kéo chuột thật ở cạnh phải, cạnh dưới, góc trên trái và thu nhỏ bằng góc dưới phải. Lưu / khôi phục bounds qua cửa sổ mới, bố cục lấp đầy viewport, kích thước tối thiểu 90 × 45 DIP, chữ/đèn scale theo cửa sổ và pipeline đèn cả hai agent đều qua. Đã xem ảnh ở kích thước tối thiểu và sau resize.
+- Regression Codex đã kiểm tra các dạng `request_user_input` có prefix `functions.`, namespace, async và khác hoa/thường; các câu hỏi này đều chuyển sang đỏ. Cấu hình hook thật trên máy đã được migrate, không còn command Agent Status nào chứa `-WindowStyle Hidden`.
 - Lần thử resize đầu không ghi nhận thay đổi sau mouse drag; lần chẩn đoán tiếp theo qua đủ bốn thao tác. Test hiện chủ động focus cửa sổ thử và chờ ổn định trước khi gửi chuột, tránh tranh chấp focus / chuyển vị trí lúc bắt đầu. Không thay đổi hành vi focus của app thật.
 - Không chạy lại command cũ có `-WindowStyle Hidden` trên terminal của người dùng để tái hiện lỗi. Kiểm thử regression dùng cấu hình cũ trong thư mục riêng, xác nhận bỏ command tác động window và hook mới vẫn ghi sự kiện. Live Codex sau khi Trust lại command mới cần người dùng kiểm tra.
 

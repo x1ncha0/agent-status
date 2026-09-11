@@ -10,11 +10,12 @@ Sửa lỗi terminal bị ẩn / thu nhỏ khi Codex chạy hook và thêm thay 
 - Installer nhận diện cấu hình cũ và yêu cầu cập nhật. Khi cài, thay handler cũ của Agent Status, loại bản trùng và giữ các hook khác cùng cấu hình hiện có; tạo backup trước khi ghi.
 - Giữ luồng truyền event qua stdin và PowerShell writer. Tiến trình do Electron khởi chạy vẫn dùng `windowsHide: true`, không đổi trạng thái cửa sổ của CLI.
 - Không tự sửa Trust của Codex. Command mới cần được người dùng review và trust lại.
+- Nhận diện câu hỏi Codex ổn định hơn với tool name có prefix `functions.`, namespace, khác hoa/thường hoặc dạng `request_user_input_async`; đèn giữ đỏ cho đến khi câu hỏi được trả lời.
 
 ### Thay đổi kích thước
 
 - Kéo cạnh trái / phải để chỉnh chiều rộng, cạnh trên / dưới để chỉnh chiều cao; kéo góc để chỉnh cả hai.
-- Kích thước mặc định `110 × 55` DIP, tối thiểu `90 × 45` DIP. Nội dung nằm giữa và giãn theo cửa sổ.
+- Kích thước mặc định `110 × 55` DIP, tối thiểu `90 × 45` DIP. Nội dung nằm giữa và giãn theo cửa sổ; chữ, đèn và khoảng cách tăng theo kích thước cửa sổ mà không thu nhỏ dưới mức mặc định.
 - Kéo phần nội dung để di chuyển app. Viền được dành riêng cho resize.
 - Lưu vị trí cùng chiều rộng / cao, khôi phục khi mở lại. File vị trí của bản cũ vẫn tương thích.
 - Giới hạn lại cửa sổ trong vùng làm việc khi màn hình bị tháo hoặc độ phân giải / tỷ lệ hiển thị thay đổi; bỏ qua giá trị kích thước không hợp lệ.
