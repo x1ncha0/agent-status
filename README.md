@@ -2,7 +2,7 @@
 
 [![Release](https://img.shields.io/github/v/release/x1ncha0/agent-status?label=latest&color=2ea44f)](https://github.com/x1ncha0/agent-status/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/x1ncha0/agent-status/total?color=blue)](https://github.com/x1ncha0/agent-status/releases)
-[![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078d4?logo=windows&logoColor=white)](#phat-trien)
+[![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078d4?logo=windows&logoColor=white)](#giới-hạn)
 
 Agent Status là tiện ích Windows hiển thị trạng thái **Claude Code** và **Codex CLI** trong một cửa sổ nhỏ, luôn nổi và không chiếm Taskbar.
 
@@ -10,11 +10,11 @@ Cửa sổ có thể kéo và thay đổi kích thước (tối thiểu `90 × 4
 
 ## Trạng thái
 
-| Đèn | Ý nghĩa |
-|---|---|
-| Xanh | Sẵn sàng hoặc đã hoàn thành |
-| Vàng | Agent đang làm việc |
-| Đỏ | Đang chờ bạn cấp quyền hoặc trả lời câu hỏi |
+| Đèn  | Ý nghĩa                                     |
+| ---- | ------------------------------------------- |
+| Xanh | Sẵn sàng hoặc đã hoàn thành                 |
+| Vàng | Agent đang làm việc                         |
+| Đỏ   | Đang chờ bạn cấp quyền hoặc trả lời câu hỏi |
 
 Chỉ hiện agent có phiên đang hoạt động và có đèn xanh, vàng hoặc đỏ. Agent chưa kết nối hoặc đã đóng sẽ tự ẩn; agent còn lại được căn giữa. Khi không còn agent nào, cửa sổ tự ẩn xuống khay hệ thống và tự hiện lại khi nhận trạng thái của phiên mới, không giành focus. App vẫn theo dõi trạng thái khi đang ẩn.
 
@@ -31,13 +31,6 @@ Codex có thể yêu cầu Review/Trust hook trong `/hooks`. Sau khi xác nhận
 ## Cài đặt hoặc cập nhật integration
 
 Trong app, mở menu khay hệ thống và chọn **Thiết lập kết nối...**. Installer sẽ cập nhật hook cho Claude Code và Codex, đồng thời giữ lại các hook khác.
-
-Nếu cần chạy thủ công:
-
-```powershell
-powershell.exe -NoProfile -File .\integration\Install-Hooks.ps1 -Check
-powershell.exe -NoProfile -File .\integration\Install-Hooks.ps1 -Apply
-```
 
 Sau khi cập nhật Agent Status, hãy cập nhật integration và mở phiên CLI mới để hook mới được nhận diện. Khi di chuyển file `.exe`, tắt rồi bật lại **Start with Windows**.
 

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+release/
+.test-data/
+.husky/_/
+package-lock.json
+**/*.ps1

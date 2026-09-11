@@ -18,7 +18,6 @@ foreach ($agent in @('claude','codex')) {
     $events = $common + $(if ($agent -eq 'claude') { @('PostToolUseFailure','StopFailure','Notification','Elicitation','ElicitationResult') } else { @('Interrupt') })
     # WindowStyle acts on an inherited console too; never hide the caller's terminal.
     $command = 'powershell.exe -NoProfile -NonInteractive -File "' + $scriptPath + '" -Agent ' + $agent + ' -DataDir "' + $DataDir + '"'
-    $legacyCommand = $command.Replace('-NonInteractive -File', '-NonInteractive -WindowStyle Hidden -File')
     $configured = $true
     $hasLegacy = $false
     foreach ($eventName in $events) {
@@ -28,7 +27,7 @@ foreach ($agent in @('claude','codex')) {
             foreach ($group in $settings.hooks.$eventName) {
                 foreach ($handler in $group.hooks) {
                     $isOwnHandler = $handler.command -match '(?i)Write-AgentEvent\.ps1' -and $handler.command -match ('(?i)-Agent\s+' + [regex]::Escape($agent) + '(?:\s|$)')
-                    if ($handler.command -eq $legacyCommand -or ($isOwnHandler -and $handler.command -match '(?i)-WindowStyle\s+Hidden')) { $hasLegacy = $true }
+                    if ($isOwnHandler -and $handler.command -match '(?i)-WindowStyle\s+Hidden') { $hasLegacy = $true }
                     if ($handler.command -eq $command -and $handler.type -eq 'command' -and
                         (-not $group.matcher -or $group.matcher -eq '*')) { $found = $true }
                 }
