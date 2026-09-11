@@ -38,6 +38,8 @@ test('input, compaction and interruption', () => {
   assert.equal(classifyClaude(event('Elicitation'))?.status, 'stuck');
   assert.equal(classifyClaude(event('ElicitationResult'))?.status, 'working');
   assert.equal(classifyCodex(event('PreToolUse', { tool_name: 'request_user_input' }))?.status, 'stuck');
+  assert.equal(classifyCodex(event('PreToolUse', { tool_name: 'functions.request_user_input_async' }))?.status, 'stuck');
+  assert.equal(classifyCodex(event('preToolUse', { tool_name: 'mcp.request_user_input' }))?.status, 'stuck');
   assert.equal(classifyCodex(event('Interrupt'))?.status, 'available');
   assert.equal(classifyCodex(event('SessionStart', { source: 'compact' }))?.status, 'working');
 });
@@ -166,22 +168,89 @@ test('source failures retain queued events and recover without inventing a red l
 });
 test('installer merges existing settings and is idempotent', async () => {
   await mkdir('.test-data', { recursive: true });
-  const directory = await mkdtemp(path.resolve('.test-data/install-'));
+  const directory = await mkdtemp(path.resolve('.test-data/install tiếng Việt-'));
   const claude = path.join(directory, 'claude'); const codex = path.join(directory, 'codex');
   await mkdir(claude); await mkdir(codex);
-  await writeFile(path.join(claude, 'settings.json'), JSON.stringify({ theme: 'dark', hooks: { Stop: [{ hooks: [{ type: 'command', command: 'echo existing' }] }] } }));
+  await writeFile(path.join(claude, 'settings.json'), JSON.stringify({ theme: 'dark', language: 'Tiếng Việt', hooks: { Stop: [{ hooks: [{ type: 'command', command: 'echo existing' }] }] } }));
   const args = ['-NoProfile', '-NonInteractive', '-File', path.resolve('integration/Install-Hooks.ps1'), '-DataDir', path.join(directory, 'data'), '-ClaudeHome', claude, '-CodexHome', codex];
   const preview = spawnSync('powershell.exe', args, { encoding: 'utf8', windowsHide: true });
   assert.equal(preview.status, 0, preview.stderr);
   assert.deepEqual(await readdir(codex), []);
+  const check = () => {
+    const result = spawnSync('powershell.exe', [...args, '-Check'], { encoding: 'utf8', windowsHide: true });
+    assert.equal(result.status, 0, result.stderr);
+    return JSON.parse(result.stdout);
+  };
+  const before = await readFile(path.join(claude, 'settings.json'), 'utf8');
+  assert.equal(check().needsInstall, true);
+  assert.equal(await readFile(path.join(claude, 'settings.json'), 'utf8'), before);
+  assert.deepEqual(await readdir(codex), []);
+  assert.deepEqual(await readdir(directory), ['claude', 'codex']);
   for (let i = 0; i < 2; i++) {
     const result = spawnSync('powershell.exe', [...args, '-Apply'], { encoding: 'utf8', windowsHide: true });
     assert.equal(result.status, 0, result.stderr);
   }
   const settings = JSON.parse(await readFile(path.join(claude, 'settings.json'), 'utf8'));
   assert.equal(settings.theme, 'dark');
+  assert.equal(settings.language, 'Tiếng Việt');
   assert.equal(settings.hooks.Stop.length, 2);
   assert.equal(settings.hooks.Stop[0].hooks[0].command, 'echo existing');
   const hooks = JSON.parse(await readFile(path.join(codex, 'hooks.json'), 'utf8'));
   assert.equal(hooks.hooks.Stop.length, 1);
+  assert.equal(check().needsInstall, false);
+  const installedFiles = await readdir(codex);
+  check();
+  assert.deepEqual(await readdir(codex), installedFiles, 'Startup checks do not create backups or rewrite settings');
+  delete hooks.hooks.UserPromptSubmit;
+  await writeFile(path.join(codex, 'hooks.json'), JSON.stringify(hooks));
+  const missingHook = check();
+  assert.equal(missingHook.needsInstall, true);
+  assert.equal(missingHook.agents.find((agent: { agent: string }) => agent.agent === 'claude').configured, true);
+  assert.equal(missingHook.agents.find((agent: { agent: string }) => agent.agent === 'codex').configured, false);
+  await writeFile(path.join(directory, 'data/Write-AgentEvent.ps1'), '# old writer');
+  assert.equal(check().writerCurrent, false);
+});
+
+test('installer migrates console-hiding hooks without duplicates or changing other hooks/trust', async () => {
+  await mkdir('.test-data', { recursive: true });
+  const directory = await mkdtemp(path.resolve('.test-data/console-hook-'));
+  const claude = path.join(directory, 'claude'); const codex = path.join(directory, 'codex');
+  const data = path.join(directory, 'data');
+  const args = ['-NoProfile', '-NonInteractive', '-File', path.resolve('integration/Install-Hooks.ps1'), '-DataDir', data, '-ClaudeHome', claude, '-CodexHome', codex];
+  const run = (mode: string) => {
+    const result = spawnSync('powershell.exe', [...args, mode], { encoding: 'utf8', windowsHide: true });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout;
+  };
+  run('-Apply');
+  const hooksPath = path.join(codex, 'hooks.json');
+  const hooks = JSON.parse(await readFile(hooksPath, 'utf8'));
+  const safeCommand = hooks.hooks.Stop[0].hooks[0].command;
+  for (const groups of Object.values(hooks.hooks) as { hooks: { command: string }[] }[][]) {
+    for (const group of groups) for (const handler of group.hooks)
+      handler.command = handler.command.replace('-NonInteractive -File', '-NonInteractive -WindowStyle Hidden -File');
+  }
+  const unrelated = { type: 'command', command: 'powershell.exe -WindowStyle Hidden -File "C:\\Other\\hook.ps1"' };
+  hooks.hooks.Stop[0].hooks.push(unrelated);
+  hooks.hooks.Stop.push({ hooks: [{ type: 'command', command: safeCommand }] });
+  await writeFile(hooksPath, JSON.stringify(hooks));
+  const trust = '[hooks.state]\n# Existing trust must be reviewed by the user after migration.\n';
+  await writeFile(path.join(codex, 'config.toml'), trust);
+  assert.equal(JSON.parse(run('-Check')).needsInstall, true);
+  run('-Apply');
+  assert.equal(JSON.parse(run('-Check')).needsInstall, false);
+  const migrated = JSON.parse(await readFile(hooksPath, 'utf8'));
+  for (const groups of Object.values(migrated.hooks) as { hooks: { command: string }[] }[][]) {
+    const own = groups.flatMap(group => group.hooks).filter(handler => handler.command.includes('Write-AgentEvent.ps1'));
+    assert.equal(own.length, 1);
+    assert.ok(!own[0].command.includes('-WindowStyle'));
+  }
+  assert.deepEqual(migrated.hooks.Stop[0].hooks, [unrelated]);
+  assert.equal(await readFile(path.join(codex, 'config.toml'), 'utf8'), trust);
+  const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', safeCommand], {
+    input: JSON.stringify({ session_id: 'console-regression', hook_event_name: 'UserPromptSubmit' }), encoding: 'utf8', windowsHide: true
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const events = await readdir(path.join(data, 'events/codex'));
+  assert.equal(events.length, 1, 'The migrated hook still forwards stdin to the writer');
 });

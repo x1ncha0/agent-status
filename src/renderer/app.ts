@@ -12,6 +12,13 @@ function render(states: AgentView[]): void {
     element.querySelector('.dot')!.className = `dot ${state.observed ? state.status : 'unobserved'}`;
   }
 }
+const resizeObserver = new ResizeObserver(entries => {
+  const { width, height } = entries[0].contentRect;
+  const scale = Math.max(1, Math.min(width / 110, height / 55));
+  document.documentElement.style.setProperty('--ui-scale', String(scale));
+});
+resizeObserver.observe(document.documentElement);
+
 window.agentStatus.subscribe(render);
 void window.agentStatus.get().then(render);
 export {};

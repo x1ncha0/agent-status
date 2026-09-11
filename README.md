@@ -5,7 +5,7 @@
 [![Nền tảng](https://img.shields.io/badge/n%E1%BB%81n%20t%E1%BA%A3ng-Windows%2010%2F11%20x64-0078d4?logo=windows&logoColor=white)](#chạy-và-build)
 [![Giấy phép](https://img.shields.io/github/license/x1ncha0/agent-status?label=gi%E1%BA%A5y%20ph%C3%A9p)](LICENSE)
 
-Utility Windows local hiển thị trạng thái **Claude Code** và **Codex CLI** trong cửa sổ `110 × 55` DIP, luôn nổi, kéo được, không chiếm Taskbar. Tray có Show/Hide, Exit và Start with Windows.
+Utility Windows local hiển thị trạng thái **Claude Code** và **Codex CLI** trong cửa sổ mặc định `110 × 55` DIP, luôn nổi, kéo được, không chiếm Taskbar. Kéo cạnh hoặc góc để thay đổi chiều rộng / cao; nhỏ nhất `90 × 45` DIP. App nhớ cả vị trí và kích thước. Tray có Show/Hide, Thiết lập kết nối, Exit và Start with Windows.
 
 | Đèn | Ý nghĩa |
 |---|---|
@@ -22,6 +22,7 @@ Utility Windows local hiển thị trạng thái **Claude Code** và **Codex CLI
 
 Portable, không cần cài đặt, không cần Node.js. Link trên luôn trỏ tới bản mới nhất nên không cần sửa mỗi lần phát hành.
 Xem toàn bộ bản phát hành và ghi chú thay đổi tại [Releases](https://github.com/x1ncha0/agent-status/releases).
+Chi tiết phiên bản hiện tại và hướng dẫn nâng cấp: [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 Đối chiếu checksum trước khi chạy, so với `AgentStatus.exe.sha256` đi kèm trong cùng bản phát hành:
 
@@ -35,7 +36,7 @@ Hoặc tải bằng dòng lệnh:
 gh release download --repo x1ncha0/agent-status --pattern "AgentStatus.exe"
 ```
 
-Sau khi tải, chạy trực tiếp rồi cài integration theo mục dưới. Khi cập nhật lên bản mới, tắt Agent Status đang chạy trước khi ghi đè file.
+Sau khi tải, chạy trực tiếp. Lần đầu, app tự kiểm tra và hiện nút **Cài đặt kết nối** nếu thiếu integration; không cần tải thêm thư mục hay chạy lệnh. Sau đó mở lại CLI; riêng Codex cần vào `/hooks` để Review / Trust rồi gửi một yêu cầu trong cửa sổ mới. Khi cập nhật lên bản mới, tắt Agent Status đang chạy trước khi ghi đè file.
 
 ## Chạy và build
 
@@ -43,6 +44,7 @@ Windows 10/11 x64; Node.js 22+ để phát triển. Phiên bản CLI đã kiểm
 
 ```powershell
 npm ci
+npm exec -- install-electron
 npm run check
 npm test
 npm start
@@ -54,18 +56,27 @@ npm run dist
 
 ## Cài hoặc cập nhật integration
 
+**Nâng cấp lên 1.0.3:** cài / cập nhật kết nối trong app để thay hook cũ có `-WindowStyle Hidden`, vốn có thể làm ẩn hoặc thu nhỏ terminal chạy Codex. Installer tự nhận diện và thay các handler cũ của Agent Status, giữ hook khác. Vì command đã đổi, Codex cần bạn Review / Trust lại trong `/hooks`, rồi dùng phiên mới. Chỉ thay `.exe` mà giữ hook cũ sẽ chưa sửa lỗi terminal.
+
+**Trong app:** bấm **Cài đặt kết nối** ở lần mở đầu, hoặc nhấp phải biểu tượng khay hệ thống → **Thiết lập kết nối…** để kiểm tra, cài lại và xem hướng dẫn. App dùng script đi kèm executable, tự sao lưu cấu hình hiện có rồi thêm hooks. Máy đã cài đủ sẽ không hiện thiết lập khi khởi động. Chọn **Để sau** sẽ ngừng nhắc cho phiên bản integration đó; vẫn có thể mở lại từ menu khay hệ thống.
+
+Codex yêu cầu bạn Review / Trust hooks; app không tự cấp Trust. Các phiên CLI mở trước lúc cài có thể chưa nhận cấu hình, vì vậy hãy mở terminal mới, chạy `codex`, vào `/hooks` rồi gửi một yêu cầu. Tooltip của đèn chưa kết nối cũng nhắc các bước này.
+
+**Cài bằng dòng lệnh (tùy chọn):**
+
 ```powershell
+powershell.exe -NoProfile -File .\integration\Install-Hooks.ps1 -Check
 powershell.exe -NoProfile -File .\integration\Install-Hooks.ps1
 powershell.exe -NoProfile -File .\integration\Install-Hooks.ps1 -Apply
 ```
 
-Lệnh đầu preview. Lệnh sau backup và merge hooks vào `~/.claude/settings.json` và `$CODEX_HOME/hooks.json` (mặc định `~/.codex/hooks.json`), copy writer vào `%LOCALAPPDATA%\AgentStatus\Write-AgentEvent.ps1`. Giữ các hook khác đã có.
+`-Check` chỉ kiểm tra và trả kết quả JSON, không ghi cấu hình. Không truyền tham số là preview. `-Apply` backup và merge hooks vào `~/.claude/settings.json` và `$CODEX_HOME/hooks.json` (mặc định `~/.codex/hooks.json`), copy writer vào `%LOCALAPPDATA%\AgentStatus\Write-AgentEvent.ps1`. Giữ các hook khác đã có.
 
 Mở CLI và review/trust các command mới trong **`/hooks`**. Codex bỏ qua hook chưa trust. Sau khi cài lần đầu, mở session mới. Khi nâng cấp từ bản cũ, cập nhật cả writer bằng installer; chỉ thay executable sẽ chưa có metadata tiến trình để khôi phục phiên cũ.
 
 Với writer mới, có thể mở Agent Status trước **hoặc sau** Codex. Ứng dụng khôi phục trạng thái của phiên còn chạy, kể cả đang thinking hoặc chờ trả lời, và loại trạng thái của tiến trình đã đóng. Hook không có metadata tiến trình chỉ được dùng khi vừa nhận, không khôi phục sau restart.
 
-Nếu chuyển sang máy khác, chuyển cả thư mục `integration/` và chạy installer trên máy đó. Không copy cấu hình của máy cũ. Không tự bypass execution policy, organization policy hoặc hook trust.
+Nếu chuyển sang máy khác, chỉ cần chuyển `AgentStatus.exe` và dùng bước thiết lập trong app. Chỉ cần thư mục `integration/` riêng nếu muốn chạy installer bằng dòng lệnh. Không copy cấu hình của máy cũ. Không tự bypass execution policy, organization policy hoặc hook trust.
 
 Gỡ integration: chỉ xóa các handler gọi `Write-AgentEvent.ps1` trong hai file cấu hình; giữ handler khác. Hoặc khôi phục backup `.agent-status-<GUID>.bak` nếu từ đó chưa có thay đổi khác. Tắt Start with Windows trước khi xóa executable.
 
@@ -78,6 +89,8 @@ CLI hook → PowerShell writer → event JSON local
 ```
 
 `src/monitor/` giữ detection, trạng thái từng session và kiểm tra tiến trình. `src/main/` quản lý window/tray; `src/renderer/` hiển thị. Renderer chạy sandbox, `contextIsolation: true`, `nodeIntegration: false`, không truy cập filesystem hay network. Ứng dụng không có server, cloud, telemetry hay đồng bộ dữ liệu.
+
+Vùng nội dung dùng để kéo di chuyển; viền dành cho resize native của Windows. Cửa sổ dùng nền tối đặc để hỗ trợ resize. `position.json` lưu `x`, `y`, `width`, `height`, vẫn đọc được file cũ chỉ có vị trí; khi đổi màn hình, app giới hạn lại vị trí / kích thước trong vùng làm việc.
 
 Writer chỉ ghi agent, session ID, event, timestamp, tên/ID tool, loại notification/source và PID/thời điểm tạo tiến trình CLI. Không lưu prompt, arguments, tool output hoặc transcript. Writer tìm CLI trong chuỗi tiến trình cha; không dùng trạng thái tồn tại của process để đoán đang thinking hay hỏi người dùng.
 

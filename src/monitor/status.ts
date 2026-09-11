@@ -43,14 +43,14 @@ export class StatusStore {
     const name = event.hook_event_name;
     if (['SessionStart', 'SessionEnd', 'UserPromptSubmit', 'StopFailure', 'Interrupt'].includes(name)) pending.clear();
     if (name === 'Stop') for (const [key, request] of pending) {
-      if (!request.tool_name?.endsWith('request_user_input_async')) pending.delete(key);
+      if (!request.tool_name?.toLowerCase().endsWith('request_user_input_async')) pending.delete(key);
     }
     if (transition.status === 'stuck') {
       pending.set(event.tool_use_id ? `id:${event.tool_use_id}` : `name:${event.tool_name ?? name}`, event);
     } else if (transition.status === 'working') {
       for (const [key, request] of pending) {
         // This tool returns as soon as it displays the question; its PostToolUse is not an answer.
-        if (request.tool_name?.endsWith('request_user_input_async')) continue;
+        if (request.tool_name?.toLowerCase().endsWith('request_user_input_async')) continue;
         const completedTool = name === 'PostToolUse' || name === 'PostToolUseFailure';
         const resolved = request.tool_use_id
           ? completedTool && event.tool_use_id === request.tool_use_id

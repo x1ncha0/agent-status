@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, nativeImage, Tray } from 'electron';
 import { showWindow } from './window';
 
-export function createTray(win: BrowserWindow): Tray {
+export function createTray(win: BrowserWindow, setup?: () => void): Tray {
   const pixels = Buffer.alloc(16 * 16 * 4);
   for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
     const i = (y * 16 + x) * 4;
@@ -15,6 +15,7 @@ export function createTray(win: BrowserWindow): Tray {
   const toggle = () => { if (win.isVisible()) win.hide(); else showWindow(win); };
   const refresh = () => tray.setContextMenu(Menu.buildFromTemplate([
     { label: win.isVisible() ? 'Hide' : 'Show', click: toggle },
+    ...(setup ? [{ label: 'Thiết lập kết nối…', click: setup }] : []),
     { label: 'Start with Windows', type: 'checkbox', enabled: app.isPackaged && process.platform === 'win32',
       checked: app.isPackaged && app.getLoginItemSettings({ path: executable }).openAtLogin,
       click: item => app.setLoginItemSettings({ openAtLogin: item.checked, path: executable, args: [] }) },

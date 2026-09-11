@@ -1,31 +1,58 @@
 ﻿param(
     [switch]$Apply,
+    [switch]$Check,
     [string]$DataDir = "$env:LOCALAPPDATA\AgentStatus",
     [string]$ClaudeHome = "$env:USERPROFILE\.claude",
     [string]$CodexHome = $(if ($env:CODEX_HOME) { $env:CODEX_HOME } else { "$env:USERPROFILE\.codex" })
 )
 $ErrorActionPreference = 'Stop'
+if ($Apply -and $Check) { throw 'Use either -Apply or -Check.' }
 $scriptPath = Join-Path $DataDir 'Write-AgentEvent.ps1'
 $common = @('SessionStart','SessionEnd','UserPromptSubmit','PreToolUse','PermissionRequest','PostToolUse','PreCompact','PostCompact','Stop')
 $plans = @()
+$agents = @()
 foreach ($agent in @('claude','codex')) {
     $target = if ($agent -eq 'claude') { Join-Path $ClaudeHome 'settings.json' } else { Join-Path $CodexHome 'hooks.json' }
-    $settings = if (Test-Path -LiteralPath $target) { Get-Content -LiteralPath $target -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
+    $settings = if (Test-Path -LiteralPath $target) { Get-Content -LiteralPath $target -Raw -Encoding UTF8 | ConvertFrom-Json } else { [pscustomobject]@{} }
     if (-not $settings.PSObject.Properties['hooks']) { $settings | Add-Member hooks ([pscustomobject]@{}) }
     $events = $common + $(if ($agent -eq 'claude') { @('PostToolUseFailure','StopFailure','Notification','Elicitation','ElicitationResult') } else { @('Interrupt') })
-    $command = 'powershell.exe -NoProfile -NonInteractive -WindowStyle Hidden -File "' + $scriptPath + '" -Agent ' + $agent + ' -DataDir "' + $DataDir + '"'
+    # WindowStyle acts on an inherited console too; never hide the caller's terminal.
+    $command = 'powershell.exe -NoProfile -NonInteractive -File "' + $scriptPath + '" -Agent ' + $agent + ' -DataDir "' + $DataDir + '"'
+    $legacyCommand = $command.Replace('-NonInteractive -File', '-NonInteractive -WindowStyle Hidden -File')
+    $configured = $true
+    $hasLegacy = $false
     foreach ($eventName in $events) {
         $groups = @()
+        $found = $false
         if ($settings.hooks.PSObject.Properties[$eventName]) {
             foreach ($group in $settings.hooks.$eventName) {
-                $remaining = @($group.hooks | Where-Object { $_.command -ne $command })
+                foreach ($handler in $group.hooks) {
+                    $isOwnHandler = $handler.command -match '(?i)Write-AgentEvent\.ps1' -and $handler.command -match ('(?i)-Agent\s+' + [regex]::Escape($agent) + '(?:\s|$)')
+                    if ($handler.command -eq $legacyCommand -or ($isOwnHandler -and $handler.command -match '(?i)-WindowStyle\s+Hidden')) { $hasLegacy = $true }
+                    if ($handler.command -eq $command -and $handler.type -eq 'command' -and
+                        (-not $group.matcher -or $group.matcher -eq '*')) { $found = $true }
+                }
+                $remaining = @($group.hooks | Where-Object {
+                    $isOwnHandler = $_.command -match '(?i)Write-AgentEvent\.ps1' -and $_.command -match ('(?i)-Agent\s+' + [regex]::Escape($agent) + '(?:\s|$)')
+                    -not $isOwnHandler
+                })
                 if ($remaining.Count) { $group.hooks = $remaining; $groups += $group }
             }
         }
+        if (-not $found) { $configured = $false }
         $groups += @{ hooks = @(@{ type = 'command'; command = $command; timeout = 3 }) }
         $settings.hooks | Add-Member -NotePropertyName $eventName -NotePropertyValue $groups -Force
     }
+    $agents += @{ agent = $agent; configured = ($configured -and -not $hasLegacy) }
     $plans += @{ Target = $target; Content = ($settings | ConvertTo-Json -Depth 100) }
+}
+if ($Check) {
+    $writerCurrent = (Test-Path -LiteralPath $scriptPath) -and
+        ((Get-FileHash -LiteralPath $scriptPath -Algorithm SHA256).Hash -eq
+         (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'Write-AgentEvent.ps1') -Algorithm SHA256).Hash)
+    @{ writerCurrent = $writerCurrent; agents = $agents; needsInstall = (-not $writerCurrent -or @($agents | Where-Object { -not $_.configured }).Count -gt 0) } |
+        ConvertTo-Json -Depth 5 -Compress
+    exit 0
 }
 if (-not $Apply) {
     foreach ($plan in $plans) { Write-Output $plan.Target; Write-Output $plan.Content }
