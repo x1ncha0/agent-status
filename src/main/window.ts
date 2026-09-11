@@ -15,27 +15,50 @@ export function createWindow(dataDir: string): BrowserWindow {
   let saved: Partial<Bounds> | undefined;
   try {
     saved = JSON.parse(readFileSync(positionFile, 'utf8'));
-  } catch { /* Lần chạy đầu chưa có vị trí. */ }
-  const area = saved && Number.isSafeInteger(saved.x) && Number.isSafeInteger(saved.y)
-    ? screen.getDisplayNearestPoint({ x: saved.x!, y: saved.y! }).workArea
-    : screen.getPrimaryDisplay().workArea;
+  } catch {
+    /* Lần chạy đầu chưa có vị trí. */
+  }
+  const area =
+    saved && Number.isSafeInteger(saved.x) && Number.isSafeInteger(saved.y)
+      ? screen.getDisplayNearestPoint({ x: saved.x!, y: saved.y! }).workArea
+      : screen.getPrimaryDisplay().workArea;
   const bounds = restoreBounds(saved, area);
   const win = new BrowserWindow({
-    ...bounds, frame: false, backgroundColor: '#20252e',
+    ...bounds,
+    frame: false,
+    backgroundColor: '#20252e',
     // Transparent Electron windows do not support native edge resizing.
-    resizable: true, thickFrame: true, minWidth: MIN_SIZE.width, minHeight: MIN_SIZE.height,
-    maximizable: false, fullscreenable: false,
-    alwaysOnTop: true, skipTaskbar: true, show: false,
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
+    resizable: true,
+    thickFrame: true,
+    minWidth: MIN_SIZE.width,
+    minHeight: MIN_SIZE.height,
+    maximizable: false,
+    fullscreenable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    show: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
   });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  win.webContents.on('will-navigate', event => event.preventDefault());
+  win.webContents.on('will-navigate', (event) => event.preventDefault());
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   const save = () => {
     if (win.isDestroyed()) return;
-    try { writeFileSync(positionFile, JSON.stringify(win.getBounds())); } catch (error) { console.error(error); }
+    try {
+      writeFileSync(positionFile, JSON.stringify(win.getBounds()));
+    } catch (error) {
+      console.error(error);
+    }
   };
-  const scheduleSave = () => { clearTimeout(saveTimer); saveTimer = setTimeout(save, 100); };
+  const scheduleSave = () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 100);
+  };
   win.on('moved', scheduleSave);
   win.on('resize', scheduleSave);
   win.on('close', save);

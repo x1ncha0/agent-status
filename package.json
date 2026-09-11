@@ -6,7 +6,13 @@
   "license": "MIT",
   "main": "dist/main/main.js",
   "scripts": {
-    "check": "tsc --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "prepare": "husky",
+    "check": "npm run lint && npm run format:check && npm run typecheck",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "npm run lint -- --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
     "build": "tsc && tsc -p tsconfig.renderer.json && node scripts/copy-assets.cjs",
     "start": "npm run build && electron .",
     "test": "npm run build && node --test dist/tests/*.test.js",
@@ -14,10 +20,17 @@
     "dist": "npm run build && electron-builder --win portable --x64 && node scripts/package-files.cjs"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@types/node": "^22.0.0",
     "electron": "^44.3.0",
     "electron-builder": "^26.0.0",
-    "typescript": "^5.9.0"
+    "eslint": "10.10.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.12.0",
+    "husky": "9.1.7",
+    "prettier": "3.9.6",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "8.70.0"
   },
   "build": {
     "appId": "local.agentstatus.app",
@@ -29,7 +42,6 @@
       "dist/**/*",
       "!dist/tests/**/*",
       "package.json",
-      "assets/icon.svg",
       "assets/icon.png"
     ],
     "extraResources": [

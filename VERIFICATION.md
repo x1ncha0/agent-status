@@ -1,5 +1,20 @@
 # Kết quả kiểm thử
 
+## Husky pre-commit — 11/09/2026
+
+- Cài Husky qua script `prepare`; hook chạy `npm run lint && npm run build`. `git hook run pre-commit` đã qua với lint và build thật của repo. Hook giữ LF qua `.gitattributes` để chạy trên Git for Windows.
+- Kiểm tra bằng commit thật trong ba repo riêng ở `.test-data/husky-Ww2jly/`: lint lỗi thì không chạy build và không tạo commit; build lỗi thì không tạo commit; cả hai qua thì commit thành công. Không tạo commit thử trong repo chính.
+
+## ESLint và Prettier — 11/09/2026
+
+- Thêm ESLint 10 với cấu hình recommended cho JS / TypeScript, tách globals main / scripts và renderer; Prettier cùng EditorConfig dùng chung quy tắc format. Đã format source / tài liệu, giữ riêng PowerShell và bỏ qua file sinh ra. Kiểm tra bằng snippet trong bộ nhớ xác nhận ESLint bắt biến không dùng ở cả main, renderer, scripts và bỏ qua thư mục output.
+- `npm run check` (lint, format, TypeScript) và 16/16 tests qua. Smoke lần đầu lệch thao tác chuột ở góc resize; chạy lại cùng source qua toàn bộ, report `.test-data/smoke-1789117427593/`.
+
+## Dọn dead code — 11/09/2026
+
+- Rà source TypeScript, script JS / PowerShell, exports, dependencies và assets đóng gói. Xóa nhánh hint không thể tới, cache / cờ trạng thái dư, render / CSS chấm rỗng và tooltip cũ, fallback không có caller, điều kiện trùng và script thử nghiệm `diagnose-window.cjs`. Giữ các script kiểm tra thủ công và SVG nguồn; bỏ SVG khỏi gói runtime.
+- `npm run check`, 16/16 tests, `npm run smoke` và build Windows unpacked đều qua. Bật `noUnusedLocals` / `noUnusedParameters` cho cả main và renderer; kiểm tra cú pháp toàn bộ script JS / PowerShell qua. Smoke report: `.test-data/smoke-1789116989392/`; archive ở `.test-data/dead-code-package/` khớp source đã kiểm thử.
+
 ## Bản 1.0.5 — tự ẩn agent và cửa sổ, 11/09/2026
 
 - `npm run check`: qua. `npm test`: 16/16 qua; bổ sung xác nhận phiên sẵn sàng vẫn được hiển thị, còn SessionEnd hoặc tiến trình đã đóng thì `observed: false`.

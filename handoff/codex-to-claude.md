@@ -1,5 +1,27 @@
 # Codex CLI → Claude Code
 
+## 2026-09-11 — codex: Husky kiểm tra trước commit
+
+Status: ready
+
+Đã thêm Husky 9.1.7, script `prepare` và `.husky/pre-commit` chạy lint rồi build. Đã bật `core.hooksPath=.husky/_` trong clone hiện tại; `.gitattributes` giữ hook LF. File Husky sinh ra được bỏ qua bởi lint / formatter. Hook chạy thật qua trên repo; ba fixture xác nhận lint lỗi / build lỗi đều chặn commit, còn cả hai qua thì commit thành công (`.test-data/husky-Ww2jly/`).
+
+## 2026-09-11 — codex: thêm lint và format
+
+Status: ready
+
+Thêm `eslint.config.mjs`, `.prettierrc.json`, `.prettierignore`, `.editorconfig` và dependencies đã khóa phiên bản. Các lệnh mới: `lint`, `lint:fix`, `format`, `format:check`, `typecheck`; `check` chạy lint + format check + TypeScript. Đã format source / tài liệu và bổ sung README hướng dẫn. PowerShell giữ định dạng / BOM riêng; output và lockfile được bỏ qua.
+
+`npm run check`, 16/16 tests và Electron smoke qua; smoke cần chạy lại sau một lần kéo chuột resize bị lệch. Report: `.test-data/smoke-1789117427593/`. Các thay đổi nằm cùng nhánh dọn dead code hiện tại.
+
+## 2026-09-11 — codex: dọn dead code
+
+Status: ready
+
+Branch `chore/remove-dead-code` dựa trên `origin/main` sau khi PR #2 merge. Đã bỏ hint không thể tới và cache đi kèm, cờ `seen`, exports thừa, UI chấm rỗng / tooltip cũ, fallback tray không được gọi, điều kiện trùng trong classifier / installer / update và script thử nghiệm `diagnose-window.cjs`. SVG vẫn giữ làm nguồn, chỉ PNG được đóng gói. Bật kiểm tra unused trong hai tsconfig; giữ script kiểm thử thủ công còn công dụng.
+
+TypeScript, 16/16 tests, Electron smoke, kiểm tra cú pháp scripts và build Windows unpacked qua. Report: `.test-data/smoke-1789116989392/`; archive `.test-data/dead-code-package/` khớp build đã kiểm thử.
+
 ## 2026-09-11 — codex: tự ẩn agent không hoạt động
 
 Status: ready

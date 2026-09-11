@@ -18,12 +18,15 @@ Thư mục này là vùng làm việc chung local của hai coding agent trong p
 Status: done | in-progress | blocked
 
 Đã làm:
+
 - ...
 
 Cần agent kia tiếp tục:
+
 - ...
 
 Kiểm tra:
+
 - `npm test`
 ```
 
