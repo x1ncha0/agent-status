@@ -1,6 +1,21 @@
 # Kết quả kiểm thử
 
-## Bản sửa 10/09/2026
+## Bản 1.0.3 — hook terminal và resize, 10/09/2026
+
+- `npm run check`: qua. `npm test`: 16/16 tests qua, gồm migrate hook `-WindowStyle Hidden`, gộp bản trùng, giữ hook khác / Trust và truyền stdin đến writer sau migration. Bổ sung khôi phục vị trí cũ, kích thước mới, dữ liệu sai và giới hạn theo màn hình.
+- Smoke test Electron đã qua kéo chuột thật ở cạnh phải, cạnh dưới, góc trên trái và thu nhỏ bằng góc dưới phải. Lưu / khôi phục bounds qua cửa sổ mới, bố cục lấp đầy viewport, kích thước tối thiểu 90 × 45 DIP và pipeline đèn cả hai agent đều qua. Đã xem ảnh ở kích thước tối thiểu và sau resize.
+- Lần thử resize đầu không ghi nhận thay đổi sau mouse drag; lần chẩn đoán tiếp theo qua đủ bốn thao tác. Test hiện chủ động focus cửa sổ thử và chờ ổn định trước khi gửi chuột, tránh tranh chấp focus / chuyển vị trí lúc bắt đầu. Không thay đổi hành vi focus của app thật.
+- Không chạy lại command cũ có `-WindowStyle Hidden` trên terminal của người dùng để tái hiện lỗi. Kiểm thử regression dùng cấu hình cũ trong thư mục riêng, xác nhận bỏ command tác động window và hook mới vẫn ghi sự kiện. Live Codex sau khi Trust lại command mới cần người dùng kiểm tra.
+
+## Bản 1.0.2 — thiết lập trên máy mới, 10/09/2026
+
+- `npm run check`: qua. `npm test`: 13/13 tests qua, bổ sung kiểm tra `-Check` không ghi cấu hình / backup, phát hiện thiếu từng hook và writer cũ, giữ nguyên tiếng Việt trong cấu hình và hỗ trợ đường dẫn có dấu / khoảng trắng.
+- `npm run smoke`: qua trên Electron 44.3.0. Luồng thiết lập dùng PowerShell thật với thư mục Claude / Codex riêng trong `.test-data`, không sửa cấu hình CLI đang dùng. Lần đầu hiện lời mời cài; chọn Để sau không tạo cấu hình CLI và không nhắc lại; mở thiết lập thủ công cài đủ; lần khởi động tiếp theo không hỏi lại. Lựa chọn hộp thoại được mô phỏng trong bài test.
+- Pipeline event giả lập → PowerShell → monitor → IPC → DOM của cả hai agent vẫn qua, gồm xanh/vàng/đỏ, input song song, tooltip và cửa sổ 110 × 55 DIP.
+- Trên máy mới trong phiên hỗ trợ này, đã thấy hook Codex thật `SessionStart → UserPromptSubmit → Stop` được app tiếp nhận sau khi Trust và mở phiên CLI mới; người dùng xác nhận cả Claude và Codex đã sáng đèn. Không tự sửa Trust hoặc khởi động lại phiên làm việc của người dùng.
+- `npm run dist`: qua, tạo `release/AgentStatus.exe` 1.0.2. Đã xác nhận archive có module thiết lập, script integration đóng gói khớp nguồn và `-Check` từ resources nhận đúng cấu hình đã cài trên máy. Bản portable mới chưa được thay vào app đang chạy; luồng giao diện đã kiểm tra bằng smoke test ở trên.
+
+## Bản sửa 10/09/2026 trước 1.0.2
 
 - `npm run check`: qua. `npm test`: 13/13 tests qua.
 - `npm run smoke`: qua, gồm màu xanh/vàng/đỏ, tooltip tiếng Việt, approval/input/recovery và câu hỏi còn chờ khi tool khác hoàn tất.
