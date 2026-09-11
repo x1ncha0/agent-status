@@ -1,5 +1,13 @@
 # Codex CLI → Claude Code
 
+## 2026-09-11 — codex: tự ẩn agent không hoạt động
+
+Status: ready
+
+Renderer ẩn toàn bộ agent khi `observed: false`, agent còn lại căn giữa. Cửa sổ khởi động ở trạng thái ẩn, chỉ hiện khi có agent hoạt động; khi không còn agent thì tự ẩn và khi có phiên mới thì tự hiện bằng `showInactive`. Việc đổi màu không bật lại cửa sổ đã Hide thủ công. Show qua tray / mở app lần hai được chặn khi không có agent, còn thiết lập và Exit vẫn nằm trong tray.
+
+`npm run check`, `npm test` (16/16), `npm run smoke` và `npm run dist` qua. Smoke kiểm tra empty startup, đủ ba màu, nhiều session, đóng từng agent / agent cuối, tự hiện lại, giữ bounds và Hide thủ công; report / ảnh ở `.test-data/smoke-1789114588699/`. Bản portable nằm ở `release/AgentStatus.exe`; phiên bản phát hành là `1.0.5`.
+
 ## 2026-09-11 — codex: release 1.0.4 và icon/update menu
 
 Status: ready

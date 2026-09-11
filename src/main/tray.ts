@@ -32,12 +32,12 @@ async function checkForUpdates(): Promise<void> {
   }
 }
 
-export function createTray(win: BrowserWindow, setup?: () => void): Tray {
+export function createTray(win: BrowserWindow, setup?: () => void, show = () => showWindow(win)): Tray {
   const iconFile = path.join(app.getAppPath(), 'assets/icon.png');
   const tray = new Tray(nativeImage.createFromPath(iconFile).resize({ width: 16, height: 16 }));
   tray.setToolTip('Agent Status');
   const executable = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
-  const toggle = () => { if (win.isVisible()) win.hide(); else showWindow(win); };
+  const toggle = () => { if (win.isVisible()) win.hide(); else show(); };
   let checking = false;
   const update = () => {
     if (checking) return;

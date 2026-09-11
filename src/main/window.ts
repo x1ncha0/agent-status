@@ -30,7 +30,6 @@ export function createWindow(dataDir: string): BrowserWindow {
   });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', event => event.preventDefault());
-  win.once('ready-to-show', () => showWindow(win));
   let saveTimer: ReturnType<typeof setTimeout> | undefined;
   const save = () => {
     if (win.isDestroyed()) return;
