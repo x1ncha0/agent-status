@@ -1,5 +1,10 @@
 # Agent Status — Release notes
 
+## 1.0.5 — 11/09/2026
+
+- Tự ẩn agent có chấm rỗng (chưa kết nối hoặc đã đóng phiên), chỉ hiện ba trạng thái xanh / vàng / đỏ; căn giữa khi còn một agent.
+- Tự ẩn cửa sổ khi không còn agent nào và hiện lại khi có phiên hoạt động, không giành focus. Giữ lựa chọn Hide thủ công trong lúc agent vẫn chạy; thiết lập và Exit vẫn dùng được qua khay hệ thống.
+
 ## 1.0.4 — 11/09/2026
 
 - Thêm mục **Kiểm tra cập nhật** trong menu khay hệ thống; khi có bản mới, app mở trang tải release tương ứng.

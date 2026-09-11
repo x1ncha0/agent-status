@@ -20,11 +20,21 @@ async function until(check) {
   for (let i = 0; i < 80; i++) { if (await check()) return; await sleep(100); }
   throw new Error('Timeout while waiting for UI');
 }
+async function sendEvent(agent, hook, session = 'smoke-session') {
+  const directory = path.join(root, 'events', agent);
+  await fs.mkdir(directory, { recursive: true });
+  const file = path.join(directory, `${require('node:crypto').randomUUID()}.json`);
+  await fs.writeFile(`${file}.tmp`, JSON.stringify({ agent, session_id: session, hook_event_name: hook, timestamp: Date.now() }));
+  await fs.rename(`${file}.tmp`, file);
+}
+const visibleAgents = win => win.webContents.executeJavaScript("[...document.querySelectorAll('.agent')].filter(element => element.getBoundingClientRect().width > 0).map(element => element.id)");
 app.whenReady().then(async () => {
   try {
     await until(() => BrowserWindow.getAllWindows().length > 0);
     const win = BrowserWindow.getAllWindows()[0];
-    await until(() => win.isVisible() && !win.webContents.isLoading());
+    let shown = false;
+    win.on('show', () => { shown = true; });
+    await until(() => !win.webContents.isLoading());
     await until(async () => {
       try { return Boolean(JSON.parse(await fs.readFile(path.join(root, 'setup.json'), 'utf8')).deferred); }
       catch { return false; }
@@ -48,6 +58,16 @@ app.whenReady().then(async () => {
     assert.equal(setupDialogs.length, 3, 'Configured machines start without setup prompts');
     assert.ok(setup.hint('codex').includes('terminal mới'));
     report.checks.push('First launch offers setup; defer writes no CLI settings; manual setup installs to isolated homes; subsequent launch is silent; Codex trust/new-session guidance present');
+    assert.equal(shown, false, 'Empty startup never flashes the status window');
+    assert.equal(win.isVisible(), false);
+    assert.deepEqual(await visibleAgents(win), []);
+    app.emit('second-instance');
+    assert.equal(win.isVisible(), false, 'Reopening the app with no active agents does not show an empty window');
+    await sendEvent('claude', 'SessionStart');
+    await until(async () => win.isVisible() && (await visibleAgents(win)).join() === 'claude');
+    const centered = await win.webContents.executeJavaScript('({ center: document.querySelector("#claude .dot").getBoundingClientRect().x + document.querySelector("#claude .dot").getBoundingClientRect().width / 2, viewport: innerWidth })');
+    assert.ok(Math.abs(centered.center - centered.viewport / 2) < 1);
+    report.checks.push('Empty startup stays hidden; first active agent restores window; hollow dot is hidden and the single agent is centered');
     assert.deepEqual(win.getSize(), [110, 55]);
     assert.equal(win.isResizable(), true);
     assert.deepEqual(win.getMinimumSize(), [90, 45]);
@@ -89,6 +109,7 @@ app.whenReady().then(async () => {
     assert.ok(scaled.scale > 1 && scaled.font > 10 && scaled.dot > 10);
     report.checks.push('Text and status dots scale with enlarged window');
     const restored = require('../dist/main/window.js').createWindow(root);
+    restored.once('ready-to-show', () => showWindow(restored));
     await until(() => restored.isVisible() && !restored.webContents.isLoading());
     assert.deepEqual(restored.getBounds(), resized);
     restored.destroy();
@@ -109,6 +130,7 @@ app.whenReady().then(async () => {
           child.stdin.end(input);
         });
         await until(() => win.webContents.executeJavaScript(`document.querySelector('#${agent} .dot').className === 'dot ${status}'`));
+        assert.ok((await visibleAgents(win)).includes(agent), `${agent} remains visible when ${status}`);
         report.checks.push(`${agent}: ${hook} -> ${status}, PowerShell/file/IPC/DOM`);
       }
     }
@@ -136,6 +158,35 @@ app.whenReady().then(async () => {
     report.checks.push('Green=ready, yellow=thinking/working, red=needs user; Vietnamese tooltip');
     await fs.writeFile(path.join(root, 'window.png'), (await win.webContents.capturePage()).toPNG());
     report.screenshot = path.join(root, 'window.png');
+    assert.deepEqual(await visibleAgents(win), ['claude', 'codex']);
+    await sendEvent('claude', 'SessionStart', 'another-session');
+    await sendEvent('claude', 'SessionEnd');
+    await until(async () => (await win.webContents.executeJavaScript('window.agentStatus.get()')).find(state => state.agent === 'claude').reason === 'Session đã bắt đầu');
+    assert.deepEqual(await visibleAgents(win), ['claude', 'codex'], 'A second active session keeps its agent visible');
+    await sendEvent('claude', 'SessionEnd', 'another-session');
+    await until(async () => (await visibleAgents(win)).join() === 'codex');
+    assert.equal(win.isVisible(), true);
+    await fs.writeFile(path.join(root, 'single-agent.png'), (await win.webContents.capturePage()).toPNG());
+    await sendEvent('codex', 'SessionEnd');
+    await until(async () => !win.isVisible() && (await visibleAgents(win)).length === 0);
+    app.emit('second-instance');
+    assert.equal(win.isVisible(), false);
+    await sendEvent('codex', 'UserPromptSubmit', 'new-session');
+    await until(async () => win.isVisible() && (await visibleAgents(win)).join() === 'codex');
+    assert.deepEqual(win.getBounds(), resized, 'Automatic hide/show preserves position and size');
+    win.hide();
+    await sendEvent('codex', 'PermissionRequest', 'new-session');
+    await until(() => win.webContents.executeJavaScript("document.querySelector('#codex .dot').className === 'dot stuck'"));
+    await sleep(650);
+    assert.equal(win.isVisible(), false, 'Status changes do not undo manual Hide');
+    app.emit('second-instance');
+    assert.equal(win.isVisible(), true, 'Manual reopen still works with active agents');
+    win.hide();
+    await sendEvent('codex', 'SessionEnd', 'new-session');
+    await until(async () => (await visibleAgents(win)).length === 0);
+    await sendEvent('claude', 'SessionStart', 'returning-session');
+    await until(async () => win.isVisible() && (await visibleAgents(win)).join() === 'claude');
+    report.checks.push('Both agents display; ending one of multiple sessions retains its agent; final session removes it; ending all hides window; new sessions restore it with saved bounds; manual Hide survives status updates and resets after all sessions close');
   } catch (error) { report.errors.push(error.stack); process.exitCode = 1; }
   finally {
     await fs.mkdir(root, { recursive: true });

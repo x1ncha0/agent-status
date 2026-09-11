@@ -20,7 +20,9 @@ for (const agent of ['claude', 'codex'] as Agent[]) {
     send('PermissionRequest'); assert.equal(store.snapshot().status, 'stuck');
     send('PostToolUse'); assert.equal(store.snapshot().status, 'working');
     send('Stop'); assert.equal(store.snapshot().status, 'available');
+    assert.equal(store.snapshot().observed, true, 'A ready session is still active');
     send('SessionEnd'); assert.equal(store.snapshot().status, 'available');
+    assert.equal(store.snapshot().observed, false, 'An ended session must be hidden');
   });
 }
 test('idle notification and tool failure do not imply intervention', () => {
@@ -145,6 +147,7 @@ test('start after Codex, restart while waiting, and discard dead/reused owners',
   running = false;
   await restarted.poll();
   assert.equal(restarted.snapshot().status, 'available');
+  assert.equal(restarted.snapshot().observed, false, 'A closed process must be hidden without SessionEnd');
   const afterExit = new FileMonitor(directory, 'codex', classifyCodex, isAlive);
   await afterExit.poll();
   assert.equal(afterExit.snapshot().observed, false);

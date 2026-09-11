@@ -1,5 +1,12 @@
 # Kết quả kiểm thử
 
+## Bản 1.0.5 — tự ẩn agent và cửa sổ, 11/09/2026
+
+- `npm run check`: qua. `npm test`: 16/16 qua; bổ sung xác nhận phiên sẵn sàng vẫn được hiển thị, còn SessionEnd hoặc tiến trình đã đóng thì `observed: false`.
+- `npm run smoke`: qua với Electron thật và dữ liệu riêng. Khởi động rỗng không hiện cửa sổ; phiên đầu tiên làm app hiện; agent chấm rỗng không chiếm chỗ và agent còn lại được căn giữa. Đã kiểm tra đủ ba màu cho cả hai agent, nhiều session cùng agent, đóng từng agent / agent cuối, tự hiện lại khi có phiên mới, giữ vị trí / kích thước, Hide thủ công không bị đổi màu làm bật lại và mở app lần hai không hiện cửa sổ rỗng.
+- Kiểm tra thiết lập trên máy mới, cài hook trong thư mục riêng, resize bằng chuột và scale giao diện vẫn qua. Report và ảnh: `.test-data/smoke-1789114588699/`. Sự kiện lifecycle trong smoke là dữ liệu kiểm thử, không phải phiên CLI thật.
+- `npm run dist`: qua; `release/AgentStatus.exe` đã được tạo lại. Các file main / window / tray và renderer trong archive đóng gói khớp build đã kiểm thử. Đã xem ảnh một agent và hai agent.
+
 ## Bản 1.0.3 — hook terminal và resize, 10/09/2026
 
 - `npm run check`: qua. `npm test`: 16/16 tests qua, gồm migrate hook `-WindowStyle Hidden`, gộp bản trùng, giữ hook khác / Trust và truyền stdin đến writer sau migration. Bổ sung khôi phục vị trí cũ, kích thước mới, dữ liệu sai và giới hạn theo màn hình.

@@ -30,9 +30,16 @@ else void app.whenReady().then(() => {
     return state.reason === 'Cài hooks và mở session mới' ? { ...state, reason: setup.hint(state.agent) } : state;
   });
   ipcMain.handle('status:get', snapshot);
-  tray = createTray(win, () => { void setup.show(); });
-  win.once('ready-to-show', () => { void setup.checkOnStartup(); });
-  app.on('second-instance', () => showWindow(win));
+  let ready = false;
+  let hasAgents = false;
+  const show = () => { if (ready && hasAgents && !win.isDestroyed()) showWindow(win); };
+  tray = createTray(win, () => { void setup.show(); }, show);
+  win.once('ready-to-show', () => {
+    ready = true;
+    show();
+    void setup.checkOnStartup();
+  });
+  app.on('second-instance', show);
   let previous = '';
   const tick = async () => {
     await Promise.all(monitors.map(monitor => monitor.poll()));
@@ -41,8 +48,15 @@ else void app.whenReady().then(() => {
     if (serialized !== previous && !win.isDestroyed()) {
       previous = serialized;
       win.webContents.send('status:changed', states);
+      const active = states.some(state => state.observed);
+      if (active !== hasAgents) {
+        hasAgents = active;
+        // Only restore on an empty -> active transition, preserving manual Hide while agents run.
+        if (active) show();
+        else win.hide();
+      }
       const labels = { available: 'Sẵn sàng', working: 'Đang suy nghĩ / làm việc', stuck: 'Cần bạn can thiệp' };
-      tray.setToolTip(states.map(s => `${s.agent}: ${s.observed ? labels[s.status] : 'Chưa kết nối'}`).join('\n'));
+      tray.setToolTip(states.filter(s => s.observed).map(s => `${s.agent}: ${labels[s.status]}`).join('\n') || 'Agent Status: Không có agent đang chạy');
     }
   };
   const timer = setInterval(() => void tick(), 500);
