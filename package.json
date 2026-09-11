@@ -1,6 +1,6 @@
 {
   "name": "agent-status",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Local floating status indicators for Claude Code and Codex CLI",
   "author": "Agent Status",
   "license": "MIT",
@@ -28,7 +28,9 @@
     "files": [
       "dist/**/*",
       "!dist/tests/**/*",
-      "package.json"
+      "package.json",
+      "assets/icon.svg",
+      "assets/icon.png"
     ],
     "extraResources": [
       {
@@ -38,8 +40,8 @@
     ],
     "win": {
       "target": "portable",
-      "executableName": "AgentStatus",
-      "signAndEditExecutable": false
+      "icon": "assets/icon.png",
+      "executableName": "AgentStatus"
     },
     "portable": {
       "artifactName": "AgentStatus.exe"

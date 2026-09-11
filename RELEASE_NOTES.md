@@ -1,5 +1,12 @@
 # Agent Status — Release notes
 
+## 1.0.4 — 11/09/2026
+
+- Thêm mục **Kiểm tra cập nhật** trong menu khay hệ thống; khi có bản mới, app mở trang tải release tương ứng.
+- Thêm icon đồng nhất cho file `.exe` và tray trên Windows.
+- Khi CLI đã đóng, đèn chuyển về chấm rỗng thay vì giữ màu xanh.
+- README được rút gọn, bỏ hướng dẫn checksum và tooltip hover không còn phù hợp với vùng kéo cửa sổ.
+
 ## 1.0.3 — 10/09/2026
 
 Sửa lỗi terminal bị ẩn / thu nhỏ khi Codex chạy hook và thêm thay đổi kích thước cửa sổ bằng chuột. Bao gồm luồng thiết lập trong app từ 1.0.2.

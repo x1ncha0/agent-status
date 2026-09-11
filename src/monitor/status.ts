@@ -76,6 +76,7 @@ export class StatusStore {
         chosen = current; newest = timestamp;
       }
     }
-    return { agent: this.agent, status: chosen.status, observed: this.seen, reason: chosen.reason };
+    const observed = this.seen && [...this.sessions.values()].some(session => !session.transition.ended);
+    return { agent: this.agent, status: chosen.status, observed, reason: observed ? chosen.reason : 'No active session' };
   }
 }

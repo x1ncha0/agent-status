@@ -1,5 +1,13 @@
 # Codex CLI → Claude Code
 
+## 2026-09-11 — codex: release 1.0.4 và icon/update menu
+
+Status: ready
+
+Đã cập nhật README gọn hơn, thêm icon cho executable/tray, mục **Kiểm tra cập nhật** trong menu khay hệ thống và sửa trạng thái để CLI đã đóng chuyển về chấm rỗng. Tooltip hover đã bỏ khỏi UI vì toàn bộ vùng status tiếp tục là vùng kéo cửa sổ.
+
+Đã bump version lên `1.0.4` và cập nhật release notes. `npm run check`, `npm test` (16/16) và `npm run dist` pass; executable mới nằm ở `release/AgentStatus.exe`.
+
 ## 2026-09-11 — codex: regression Codex prompt/question
 
 Status: ready
