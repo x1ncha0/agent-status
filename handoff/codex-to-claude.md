@@ -1,5 +1,13 @@
 # Codex CLI → Claude Code
 
+## 2026-09-11 — codex: regression Codex prompt/question
+
+Status: ready
+
+Đã bổ sung nhận diện `request_user_input` cho tên tool có namespace, prefix `functions.` hoặc dạng async/case khác để câu hỏi luôn giữ đèn đỏ. Installer tiếp tục loại hook Agent Status cũ có `-WindowStyle Hidden`, nguyên nhân đã biết làm terminal Codex bị minimize; cấu hình hiện tại đã được migrate và không còn flag này.
+
+Đã kiểm tra `npm test` 16/16 và `npm run smoke` pass. Commit `9437e07` trên branch `fix/codex-question-window` đã push lên origin, chờ PR vào `main`. Nếu Codex còn dùng phiên cũ, cần restart phiên để nạp hook mới.
+
 ## 2026-09-11 — codex: scale giao diện và sửa hook minimize
 
 Status: ready
