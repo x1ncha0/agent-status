@@ -1,5 +1,12 @@
 # Kết quả kiểm thử
 
+## Đèn đỏ nhấp nháy — 14/09/2026
+
+- `npm run check` và `npm run smoke` qua. Smoke kiểm tra đủ ba trạng thái, luồng xin quyền / trả lời câu hỏi và khôi phục cho cả Claude lẫn Codex; report `.test-data/smoke-1789376405810/`.
+- Đo trên renderer Electron thật với trạng thái mô phỏng: đèn đỏ có opacity dao động khoảng 0,265–0,985 theo nhịp 1 giây; chuyển sang vàng hoặc xanh thì animation dừng, opacity giữ ở 1. Đã xem ảnh hai pha sáng / mờ trong `.test-data/blink-1789376490739/`.
+- Đã đóng gói portable, thay `release/AgentStatus.exe` và mở lại app. CSS / JS trong archive khớp build đã kiểm tra; SHA256 archive của process đang chạy khớp gói mới. Backup executable cũ ở `.test-data/before-blink-20260914-160710/`; thông tin process / hash ở `.test-data/blink-update-report.json`.
+- Đã xem ảnh app mới đang hiển thị Claude xanh / Codex vàng tại `.test-data/blink-live-window.png`. `Verify-Windows.ps1 -Existing` thấy cửa sổ visible nhưng không qua assertion `captionStyle` (Windows trả `true`); không coi lần kiểm tra native này là pass.
+
 ## Husky pre-commit — 11/09/2026
 
 - Cài Husky qua script `prepare`; hook chạy `npm run lint && npm run build`. `git hook run pre-commit` đã qua với lint và build thật của repo. Hook giữ LF qua `.gitattributes` để chạy trên Git for Windows.

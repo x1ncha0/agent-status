@@ -10,11 +10,11 @@ Cửa sổ có thể kéo và thay đổi kích thước (tối thiểu `90 × 4
 
 ## Trạng thái
 
-| Đèn  | Ý nghĩa                                     |
-| ---- | ------------------------------------------- |
-| Xanh | Sẵn sàng hoặc đã hoàn thành                 |
-| Vàng | Agent đang làm việc                         |
-| Đỏ   | Đang chờ bạn cấp quyền hoặc trả lời câu hỏi |
+| Đèn          | Ý nghĩa                                     |
+| ------------ | ------------------------------------------- |
+| Xanh         | Sẵn sàng hoặc đã hoàn thành                 |
+| Vàng         | Agent đang làm việc                         |
+| Đỏ nhấp nháy | Đang chờ bạn cấp quyền hoặc trả lời câu hỏi |
 
 Chỉ hiện agent có phiên đang hoạt động và có đèn xanh, vàng hoặc đỏ. Agent chưa kết nối hoặc đã đóng sẽ tự ẩn; agent còn lại được căn giữa. Khi không còn agent nào, cửa sổ tự ẩn xuống khay hệ thống và tự hiện lại khi nhận trạng thái của phiên mới, không giành focus. App vẫn theo dõi trạng thái khi đang ẩn.
 
