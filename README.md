@@ -16,6 +16,8 @@ Cửa sổ có thể kéo và thay đổi kích thước (tối thiểu `90 × 4
 | Vàng         | Agent đang làm việc                         |
 | Đỏ nhấp nháy | Đang chờ bạn cấp quyền hoặc trả lời câu hỏi |
 
+Mỗi khi Claude hoặc Codex chuyển sang đỏ, app phát một tiếng báo hệ thống, kể cả khi cửa sổ đang ẩn. Âm thanh không lặp lại trong lúc agent vẫn đang chờ.
+
 Chỉ hiện agent có phiên đang hoạt động và có đèn xanh, vàng hoặc đỏ. Agent chưa kết nối hoặc đã đóng sẽ tự ẩn; agent còn lại được căn giữa. Khi không còn agent nào, cửa sổ tự ẩn xuống khay hệ thống và tự hiện lại khi nhận trạng thái của phiên mới, không giành focus. App vẫn theo dõi trạng thái khi đang ẩn.
 
 Nếu chọn **Hide** thủ công, cửa sổ giữ ẩn trong lúc các phiên hiện tại còn chạy; có thể mở lại bằng **Show** trong khay hệ thống.

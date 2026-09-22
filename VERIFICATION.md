@@ -1,5 +1,12 @@
 # Kết quả kiểm thử
 
+## Hook và âm thanh — 22/09/2026
+
+- `npm run check`, 20/20 tests và `npm run smoke` qua. Smoke report: `.test-data/smoke-1790047667109/`. Kiểm tra luồng event thật qua PowerShell/file/IPC/DOM và số lần gọi âm thanh khi chuyển đỏ; âm thanh được thay bằng bộ đếm trong smoke, không xác nhận loa thực tế.
+- Test chạy writer đã cài dưới executable giả lập `claude.exe` và `codex.exe`: cả `PreToolUse` lẫn `UserPromptSubmit` ghi đúng PID/thời điểm tạo CLI trong giới hạn 2,5 giây. Thiếu DLL vẫn ghi sự kiện; installer phát hiện cần cài lại.
+- Đo ngoài sandbox trên cùng cây tiến trình giả lập, 10 lượt mỗi bản: trung vị bản cũ 749 ms, bản mới 476,5 ms; tối đa bản mới 507 ms, không timeout và không mất event. Báo cáo `.test-data/hook-benchmark-latest.json`. Kiểm tra riêng nhận diện Claude npm và bỏ qua Node không liên quan đều qua. Đây là phép đo có kiểm soát, chưa phải số liệu từ phiên Claude thực tế sau cập nhật.
+- Đã sao lưu và cập nhật writer/DLL trong `%LOCALAPPDATA%\AgentStatus`, giữ nguyên cấu hình hook và Trust. Đã thay `release/AgentStatus.exe` và mở lại app; hash archive của process đang chạy khớp bản đóng gói đã kiểm tra. Installer báo `needsInstall: false`; trạng thái lưu của cả Claude/Codex tiếp tục nhận event thật có PID. Report `.test-data/hook-sound-update-report.json`, backup `.test-data/before-hook-sound-20260922-103247/`.
+
 ## Đèn đỏ nhấp nháy — 14/09/2026
 
 - `npm run check` và `npm run smoke` qua. Smoke kiểm tra đủ ba trạng thái, luồng xin quyền / trả lời câu hỏi và khôi phục cho cả Claude lẫn Codex; report `.test-data/smoke-1789376405810/`.

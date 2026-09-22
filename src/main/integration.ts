@@ -62,6 +62,7 @@ export function createIntegrationSetup(win: BrowserWindow, paths: SetupPaths) {
       const fingerprint = createHash('sha256')
         .update(await readFile(installer))
         .update(await readFile(path.join(paths.integrationDir, 'Write-AgentEvent.ps1')))
+        .update(await readFile(path.join(paths.integrationDir, 'ProcessOwner.cs')))
         .digest('hex');
       if (automatic) {
         try {

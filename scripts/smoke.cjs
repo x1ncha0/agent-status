@@ -1,5 +1,5 @@
 // Chỉ chạy bằng Electron: npm run smoke. Không gọi Claude/Codex hoặc mạng.
-const { app, BrowserWindow, dialog, screen } = require('electron');
+const { app, BrowserWindow, dialog, screen, shell } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const assert = require('node:assert/strict');
@@ -8,6 +8,8 @@ process.env.AGENT_STATUS_DATA_DIR = root;
 process.env.AGENT_STATUS_CLAUDE_HOME = path.join(root, 'claude');
 process.env.AGENT_STATUS_CODEX_HOME = path.join(root, 'codex');
 const setupDialogs = [];
+let attentionSounds = 0;
+shell.beep = () => attentionSounds++;
 dialog.showMessageBox = async (_window, options) => {
   setupDialogs.push(options);
   return { response: setupDialogs.length === 1 ? 1 : 0, checkboxChecked: false };
@@ -238,6 +240,7 @@ app.whenReady().then(async () => {
         report.checks.push(`${agent}: ${hook} -> ${status}, PowerShell/file/IPC/DOM`);
       }
     }
+    assert.equal(attentionSounds, 2, 'One sound for each agent entering red');
     for (const [hook, tool, id, status] of [
       ['PreToolUse', 'request_user_input', 'question', 'stuck'],
       ['PostToolUse', 'Bash', 'parallel-tool', 'stuck'],
@@ -272,6 +275,14 @@ app.whenReady().then(async () => {
       }
       report.checks.push(`codex: ${hook}/${tool} -> ${status}, question and parallel tool`);
     }
+    assert.equal(
+      attentionSounds,
+      3,
+      'Pending questions and repeated polls do not repeat the sound',
+    );
+    report.checks.push(
+      'Attention sound fires on each transition to red, with no repeat while waiting',
+    );
     const colors = await win.webContents
       .executeJavaScript(`['available','working','stuck'].map(status => {
       const dot = document.createElement('span'); dot.className = 'dot ' + status;
