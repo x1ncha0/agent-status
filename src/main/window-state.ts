@@ -34,3 +34,18 @@ export function restoreBounds(saved: unknown, work: Bounds): Bounds {
     work,
   );
 }
+
+export function cornerBounds(
+  size: { width: number; height: number },
+  work: Bounds,
+  margin = 12,
+): Bounds {
+  return fitBounds(
+    {
+      x: work.x + work.width - size.width - margin,
+      y: work.y + work.height - size.height - margin,
+      ...size,
+    },
+    work,
+  );
+}

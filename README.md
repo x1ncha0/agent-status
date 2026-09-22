@@ -36,6 +36,14 @@ Trong app, mở menu khay hệ thống và chọn **Thiết lập kết nối...
 
 Sau khi cập nhật Agent Status, hãy cập nhật integration và mở phiên CLI mới để hook mới được nhận diện. Khi di chuyển file `.exe`, tắt rồi bật lại **Start with Windows**.
 
+## Cập nhật app
+
+Chọn **Kiểm tra cập nhật** trong menu khay hệ thống. Kết quả hiện trong popup nhỏ ở góc dưới bên phải màn hình thay vì hộp thoại giữa màn hình: đang kiểm tra, đã dùng bản mới nhất (tự đóng sau vài giây), có bản mới, hoặc không kết nối được GitHub (có nút **Thử lại**).
+
+Khi có bản mới, chọn **Tải bản cập nhật**: app tự tải `AgentStatus.exe` kèm progress bar (có thể **Huỷ**), đối chiếu SHA256 của bản phát hành, đổi bản đang chạy thành `AgentStatus.old.exe`, đưa bản mới vào đúng chỗ rồi tự khởi động lại. File `.old.exe` được xoá ở lần mở kế tiếp; checksum lệch thì bản đang chạy được giữ nguyên.
+
+Nếu thư mục chứa `.exe` không cho ghi, file tải về được lưu vào Downloads và popup hiện nút **Mở thư mục** để bạn thay thủ công.
+
 ## Giới hạn
 
 - Chỉ hỗ trợ CLI native trên Windows với hook đã được cài và trust. WSL, remote/cloud và client Desktop/IDE chưa được kiểm chứng.

@@ -8,6 +8,7 @@ import { classifyClaude } from '../monitor/claude';
 import { classifyCodex } from '../monitor/codex';
 import { createIntegrationSetup } from './integration';
 import { createAttentionNotifier } from './attention';
+import { cleanupPreviousUpdate, createUpdater } from './updater';
 
 const dataDir =
   process.env.AGENT_STATUS_DATA_DIR ||
@@ -42,12 +43,15 @@ else
     const show = () => {
       if (ready && hasAgents && !win.isDestroyed()) showWindow(win);
     };
+    const updater = createUpdater(win);
+    void cleanupPreviousUpdate();
     tray = createTray(
       win,
       () => {
         void setup.show();
       },
       show,
+      updater.check,
     );
     win.once('ready-to-show', () => {
       ready = true;
