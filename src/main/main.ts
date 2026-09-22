@@ -1,4 +1,4 @@
-import { app, ipcMain, Tray } from 'electron';
+import { app, ipcMain, shell, Tray } from 'electron';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { createWindow, showWindow } from './window';
@@ -7,6 +7,7 @@ import { FileMonitor } from '../monitor/file-monitor';
 import { classifyClaude } from '../monitor/claude';
 import { classifyCodex } from '../monitor/codex';
 import { createIntegrationSetup } from './integration';
+import { createAttentionNotifier } from './attention';
 
 const dataDir =
   process.env.AGENT_STATUS_DATA_DIR ||
@@ -55,9 +56,11 @@ else
     });
     app.on('second-instance', show);
     let previous = '';
+    const notifyAttention = createAttentionNotifier(() => shell.beep());
     const tick = async () => {
       await Promise.all(monitors.map((monitor) => monitor.poll()));
       const states = snapshot();
+      notifyAttention(states);
       const serialized = JSON.stringify(states);
       if (serialized !== previous && !win.isDestroyed()) {
         previous = serialized;

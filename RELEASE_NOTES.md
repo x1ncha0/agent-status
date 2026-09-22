@@ -1,5 +1,12 @@
 # Agent Status — Release notes
 
+## 1.0.6 — 22/09/2026
+
+- Phát một tiếng báo hệ thống khi Claude hoặc Codex chuyển sang đỏ, kể cả khi cửa sổ đang ẩn; không kêu lặp khi vẫn đang chờ.
+- Đèn đỏ nhấp nháy để dễ nhận biết agent đang chờ cấp quyền hoặc trả lời câu hỏi.
+- Giảm thời gian chạy hook bằng cách đọc cây tiến trình qua Windows Toolhelp thay cho nhiều truy vấn WMI. Bộ hỗ trợ được biên dịch lúc cài integration; vẫn giữ PID và thời điểm tạo phiên để khôi phục trạng thái đúng.
+- Giữ nguyên lệnh hook và giới hạn 3 giây. Truy vấn dự phòng cho Claude cài qua npm có ngân sách tối đa 500 ms; thiếu metadata vẫn ghi sự kiện.
+
 ## 1.0.5 — 11/09/2026
 
 - Tự ẩn agent có chấm rỗng (chưa kết nối hoặc đã đóng phiên), chỉ hiện ba trạng thái xanh / vàng / đỏ; căn giữa khi còn một agent.

@@ -1,6 +1,6 @@
 export type Agent = 'claude' | 'codex';
 type Status = 'available' | 'working' | 'stuck';
-interface AgentState {
+export interface AgentState {
   agent: Agent;
   status: Status;
   observed: boolean;

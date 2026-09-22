@@ -15,19 +15,14 @@ try {
     foreach ($field in @('tool_name','tool_use_id','notification_type','source')) {
         if ($null -ne $eventData.$field) { $record[$field] = [string]$eventData.$field }
     }
-    # Identify the actual CLI ancestor, not this short-lived hook process.
-    # Creation time prevents restoring stale state after Windows reuses a PID.
+    # A native process snapshot avoids repeated WMI queries on every hook.
+    # Load bytes so a running hook does not lock the DLL during an update.
     try {
-        $ancestorId = $PID
-        for ($depth = 0; $depth -lt 8 -and $ancestorId -gt 0; $depth++) {
-            $ancestor = Get-CimInstance Win32_Process -Filter "ProcessId = $ancestorId" -ErrorAction Stop
-            if (-not $ancestor) { break }
-            if ($ancestor.Name -ieq "$Agent.exe" -or ($Agent -eq 'claude' -and $ancestor.Name -ieq 'node.exe' -and $ancestor.CommandLine -match 'claude-code')) {
-                $record.owner_pid = [int]$ancestor.ProcessId
-                $record.owner_started_at = ([DateTimeOffset]$ancestor.CreationDate.ToUniversalTime()).ToUnixTimeMilliseconds()
-                break
-            }
-            $ancestorId = [int]$ancestor.ParentProcessId
+        $null = [Reflection.Assembly]::Load([IO.File]::ReadAllBytes((Join-Path $DataDir 'ProcessOwner.dll')))
+        $owner = [AgentStatus.ProcessOwner]::Find($Agent, $PID)
+        if ($owner) {
+            $record.owner_pid = [int]$owner[0]
+            $record.owner_started_at = [long]$owner[1]
         }
     } catch { # Fresh events still work when process inspection is unavailable.
     }

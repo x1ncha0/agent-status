@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readdir, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readdir, readFile, copyFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { StatusStore, type Agent, type HookEvent } from '../monitor/status';
@@ -368,6 +368,88 @@ test('installer merges existing settings and is idempotent', async () => {
   );
   await writeFile(path.join(directory, 'data/Write-AgentEvent.ps1'), '# old writer');
   assert.equal(check().writerCurrent, false);
+});
+
+test('installed hooks preserve CLI ownership within the timeout and tolerate a missing helper', async () => {
+  await mkdir('.test-data', { recursive: true });
+  const directory = await mkdtemp(path.resolve('.test-data/hook-owner-'));
+  const data = path.join(directory, 'data');
+  const installArgs = [
+    '-NoProfile',
+    '-NonInteractive',
+    '-File',
+    path.resolve('integration/Install-Hooks.ps1'),
+    '-DataDir',
+    data,
+    '-ClaudeHome',
+    path.join(directory, 'claude'),
+    '-CodexHome',
+    path.join(directory, 'codex'),
+  ];
+  const installed = spawnSync('powershell.exe', [...installArgs, '-Apply'], {
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  assert.equal(installed.status, 0, installed.stderr);
+  const fixture = path.join(directory, 'claude.exe');
+  const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
+  const compiled = spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      `Add-Type -Path ${quote(path.resolve('src/tests/fixtures/HookOwner.cs'))} -OutputAssembly ${quote(fixture)} -OutputType ConsoleApplication -ErrorAction Stop`,
+    ],
+    { encoding: 'utf8', windowsHide: true },
+  );
+  assert.equal(compiled.status, 0, compiled.stderr);
+  await copyFile(fixture, path.join(directory, 'codex.exe'));
+  for (const agent of ['claude', 'codex'] as Agent[]) {
+    const eventDir = path.join(data, 'events', agent);
+    for (const hook of ['PreToolUse', 'UserPromptSubmit']) {
+      const result = spawnSync(
+        path.join(directory, `${agent}.exe`),
+        [path.join(data, 'Write-AgentEvent.ps1'), data, agent],
+        {
+          input: JSON.stringify(event(hook, { tool_name: 'Bash', tool_use_id: 'test-tool' })),
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 3000,
+        },
+      );
+      assert.equal(result.status, 0, result.error?.message || result.stderr);
+      assert.equal(result.stderr, '');
+      const [pid, started] = result.stdout.trim().split(':').map(Number);
+      const files = await readdir(eventDir);
+      assert.equal(files.length, 1, 'One complete event is written before the timeout');
+      const record = JSON.parse(await readFile(path.join(eventDir, files[0]), 'utf8'));
+      assert.equal(record.owner_pid, pid);
+      assert.equal(record.owner_started_at, started);
+      assert.equal(record.hook_event_name, hook);
+      assert.equal(record.tool_use_id, 'test-tool');
+      await unlink(path.join(eventDir, files[0]));
+    }
+  }
+  await unlink(path.join(data, 'ProcessOwner.dll'));
+  const check = spawnSync('powershell.exe', [...installArgs, '-Check'], {
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  assert.equal(check.status, 0, check.stderr);
+  assert.equal(JSON.parse(check.stdout).needsInstall, true);
+  const fallback = spawnSync(fixture, [path.join(data, 'Write-AgentEvent.ps1'), data, 'claude'], {
+    input: JSON.stringify(event('UserPromptSubmit')),
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 3000,
+  });
+  assert.equal(fallback.status, 0, fallback.error?.message || fallback.stderr);
+  assert.equal(fallback.stderr, '');
+  const [file] = await readdir(path.join(data, 'events/claude'));
+  const record = JSON.parse(await readFile(path.join(data, 'events/claude', file), 'utf8'));
+  assert.equal(record.hook_event_name, 'UserPromptSubmit');
+  assert.equal(record.owner_pid, undefined, 'Unavailable metadata does not lose the event');
 });
 
 test('installer migrates console-hiding hooks without duplicates or changing other hooks/trust', async () => {

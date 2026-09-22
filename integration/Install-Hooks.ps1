@@ -8,6 +8,9 @@
 $ErrorActionPreference = 'Stop'
 if ($Apply -and $Check) { throw 'Use either -Apply or -Check.' }
 $scriptPath = Join-Path $DataDir 'Write-AgentEvent.ps1'
+$ownerSource = Join-Path $PSScriptRoot 'ProcessOwner.cs'
+$ownerInstalledSource = Join-Path $DataDir 'ProcessOwner.cs'
+$ownerAssembly = Join-Path $DataDir 'ProcessOwner.dll'
 $common = @('SessionStart','SessionEnd','UserPromptSubmit','PreToolUse','PermissionRequest','PostToolUse','PreCompact','PostCompact','Stop')
 $plans = @()
 $agents = @()
@@ -48,7 +51,10 @@ foreach ($agent in @('claude','codex')) {
 if ($Check) {
     $writerCurrent = (Test-Path -LiteralPath $scriptPath) -and
         ((Get-FileHash -LiteralPath $scriptPath -Algorithm SHA256).Hash -eq
-         (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'Write-AgentEvent.ps1') -Algorithm SHA256).Hash)
+         (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'Write-AgentEvent.ps1') -Algorithm SHA256).Hash) -and
+        (Test-Path -LiteralPath $ownerAssembly) -and (Test-Path -LiteralPath $ownerInstalledSource) -and
+        ((Get-FileHash -LiteralPath $ownerInstalledSource -Algorithm SHA256).Hash -eq
+         (Get-FileHash -LiteralPath $ownerSource -Algorithm SHA256).Hash)
     @{ writerCurrent = $writerCurrent; agents = $agents; needsInstall = (-not $writerCurrent -or @($agents | Where-Object { -not $_.configured }).Count -gt 0) } |
         ConvertTo-Json -Depth 5 -Compress
     exit 0
@@ -59,6 +65,15 @@ if (-not $Apply) {
     exit 0
 }
 [IO.Directory]::CreateDirectory($DataDir) | Out-Null
+$temporaryAssembly = Join-Path $DataDir ('ProcessOwner-' + [Guid]::NewGuid().ToString() + '.dll')
+try {
+    Add-Type -TypeDefinition (Get-Content -LiteralPath $ownerSource -Raw) -ReferencedAssemblies System.Management -OutputAssembly $temporaryAssembly -ErrorAction Stop
+    if (Test-Path -LiteralPath $ownerAssembly) { [IO.File]::Replace($temporaryAssembly, $ownerAssembly, [NullString]::Value) }
+    else { [IO.File]::Move($temporaryAssembly, $ownerAssembly) }
+} finally {
+    if (Test-Path -LiteralPath $temporaryAssembly) { Remove-Item -LiteralPath $temporaryAssembly }
+}
+Copy-Item -LiteralPath $ownerSource -Destination $ownerInstalledSource -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Write-AgentEvent.ps1') -Destination $scriptPath -Force
 foreach ($plan in $plans) {
     [IO.Directory]::CreateDirectory((Split-Path $plan.Target)) | Out-Null
