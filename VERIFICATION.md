@@ -1,5 +1,13 @@
 # Kết quả kiểm thử
 
+## Popup cập nhật và tự tải — 22/09/2026
+
+- `npm run check`, 25/25 tests và `npm run smoke` qua. Smoke report: `.test-data/smoke-1790049679212/`. Test mới bao phủ phần logic thuần: đọc payload release, so sánh phiên bản theo số, chọn asset không phân biệt hoa thường, đọc file checksum và tính vị trí neo góc.
+- Dựng đủ 7 trạng thái popup trên Electron thật: bounds trùng `cornerBounds` của workArea (`1548,888 360×132` trên màn hình 1920×1032), alwaysOnTop, sandbox + contextIsolation bật và `window.require` không tồn tại. Nút Tải bản cập nhật / Huỷ và `Esc` gửi đúng action qua IPC; bar ở 36% chiếm 120/334 px; popup "mới nhất" tự đóng sau thời gian chờ rồi mở lại được. Ảnh và report: `.test-data/popup-smoke/`.
+- Chuỗi tải → checksum → thay exe → relaunch chạy với `fetch` giả và exe portable giả trong thư mục tạm: checksum lệch thì giữ nguyên exe đang chạy, xoá file tải dở và báo lỗi; checksum khớp thì exe mới vào đúng chỗ, bản cũ thành `AgentStatus.old.exe`, `app.relaunch` nhận đúng `execPath`, và `cleanupPreviousUpdate()` xoá `.old.exe` / `.update.exe`. Report: `.test-data/install-smoke-1790049984275/`.
+- Chưa kiểm tra tải từ GitHub thật và relaunch trên bản đóng gói với một release mới hơn; hai nhánh này chỉ được xác nhận qua exe giả và `fetch` giả. Cũng chưa kiểm tra nhánh thư mục `.exe` chỉ đọc trên máy thật.
+- Chữ dài không tràn: thông báo lưu file và lỗi mạng dài đều được cắt còn 3 hàng, không chồng lên hàng nút (`.test-data/popup-overflow/`).
+
 ## Hook và âm thanh — 22/09/2026
 
 - `npm run check`, 20/20 tests và `npm run smoke` qua. Smoke report: `.test-data/smoke-1790047667109/`. Kiểm tra luồng event thật qua PowerShell/file/IPC/DOM và số lần gọi âm thanh khi chuyển đỏ; âm thanh được thay bằng bộ đếm trong smoke, không xác nhận loa thực tế.

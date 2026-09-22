@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent Status — Cập nhật</title>
+    <link rel="stylesheet" href="update.css" />
+  </head>
+  <body>
+    <main aria-label="Cập nhật Agent Status" aria-live="polite">
+      <div class="head">
+        <h1 id="title">Đang kiểm tra cập nhật…</h1>
+        <button id="close" class="close" type="button" aria-label="Đóng">×</button>
+      </div>
+      <div class="body">
+        <p id="detail"></p>
+      </div>
+      <div
+        id="progress"
+        class="progress"
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        hidden
+      >
+        <div id="bar" class="bar"></div>
+      </div>
+      <div class="actions">
+        <button id="secondary" class="button" type="button" hidden></button>
+        <button id="primary" class="button primary" type="button" hidden></button>
+      </div>
+    </main>
+    <script type="module" src="update.js"></script>
+  </body>
+</html>

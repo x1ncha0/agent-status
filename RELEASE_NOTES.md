@@ -1,5 +1,12 @@
 # Agent Status — Release notes
 
+## 1.1.0 — 22/09/2026
+
+- **Kiểm tra cập nhật** hiện kết quả trong popup nhỏ ở góc dưới bên phải màn hình thay cho hộp thoại giữa màn hình: đang kiểm tra, đã dùng bản mới nhất (tự đóng sau vài giây), có bản mới, hoặc lỗi mạng kèm nút Thử lại. Popup nổi trên cửa sổ khác nhưng không giành focus của CLI; đóng bằng nút × hoặc `Esc`.
+- Chọn **Tải bản cập nhật** là app tự tải `AgentStatus.exe` của bản phát hành mới, kèm progress bar theo dung lượng và nút Huỷ.
+- Tải xong, app đối chiếu SHA256 với asset `AgentStatus.exe.sha256`, đổi bản đang chạy thành `AgentStatus.old.exe`, đưa bản mới vào đúng chỗ rồi tự khởi động lại. File `.old.exe` được xoá ở lần mở kế tiếp. Checksum lệch thì giữ nguyên bản đang chạy và báo lỗi.
+- Nếu thư mục chứa `.exe` không cho ghi, file tải về vào Downloads và popup hiện nút Mở thư mục để thay thủ công.
+
 ## 1.0.6 — 22/09/2026
 
 - Phát một tiếng báo hệ thống khi Claude hoặc Codex chuyển sang đỏ, kể cả khi cửa sổ đang ẩn; không kêu lặp khi vẫn đang chờ.
