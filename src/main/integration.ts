@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import { POWERSHELL } from '../common/powershell';
 import type { Agent } from '../monitor/status';
 
 interface Installation {
@@ -26,13 +27,9 @@ export function createIntegrationSetup(win: BrowserWindow, paths: SetupPaths) {
   let busy = false;
   const preferenceFile = path.join(paths.dataDir, 'setup.json');
   const installer = path.join(paths.integrationDir, 'Install-Hooks.ps1');
-  const run = async (mode: '-Check' | '-Apply') => {
-    const shell = path.join(
-      process.env.SystemRoot || 'C:\\Windows',
-      'System32/WindowsPowerShell/v1.0/powershell.exe',
-    );
-    return execute(
-      shell,
+  const run = async (mode: '-Check' | '-Apply') =>
+    execute(
+      POWERSHELL,
       [
         '-NoProfile',
         '-NonInteractive',
@@ -48,7 +45,6 @@ export function createIntegrationSetup(win: BrowserWindow, paths: SetupPaths) {
       ],
       { windowsHide: true, timeout: 20000, maxBuffer: 1024 * 1024 },
     );
-  };
   const check = async () => {
     const { stdout } = await run('-Check');
     return JSON.parse(stdout) as Installation;

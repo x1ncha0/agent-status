@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import path from 'node:path';
+import { POWERSHELL } from '../common/powershell';
 
 export type OwnerAlive = (pid: number, startedAt: number) => Promise<boolean>;
 
@@ -15,12 +15,8 @@ export function isRunning(pid: number): boolean {
 
 export function processStartTime(pid: number): Promise<number> {
   return new Promise((resolve, reject) => {
-    const shell = path.join(
-      process.env.SystemRoot || 'C:\\Windows',
-      'System32/WindowsPowerShell/v1.0/powershell.exe',
-    );
     execFile(
-      shell,
+      POWERSHELL,
       [
         '-NoProfile',
         '-NonInteractive',
