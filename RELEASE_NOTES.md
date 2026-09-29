@@ -74,7 +74,6 @@ Sửa lỗi terminal bị ẩn / thu nhỏ khi Codex chạy hook và thêm thay 
 
 - Kiểm thử migration hook cũ, giữ hook khác và Trust, stdin đến writer; kiểm thử trạng thái, khôi phục, giá trị vị trí / kích thước cũ hoặc sai.
 - Smoke test Electron kiểm tra thiết lập bằng PowerShell thật trong thư mục riêng, kéo cạnh / góc bằng chuột, thu nhỏ, lưu / khôi phục kích thước, bố cục và màu đèn của hai agent.
-- Chi tiết bằng chứng và phạm vi đã kiểm tra: [VERIFICATION.md](VERIFICATION.md).
 - Hỗ trợ CLI native Windows 10/11 x64. WSL, client Desktop/IDE và remote/cloud chưa được kiểm chứng. Giới hạn phát hiện approval/input vẫn như README; executable chưa code-sign.
 
 ## 1.0.2 — 10/09/2026
