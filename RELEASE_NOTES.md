@@ -1,5 +1,13 @@
 # Agent Status — Release notes
 
+## 1.1.1 — 29/09/2026
+
+- Cửa sổ tự ẩn trong khoảng 0,5 giây sau khi đóng terminal hoặc tắt CLI (trước đây 2,5–3,5 giây). App kiểm tra tiến trình còn sống mà không phải mở PowerShell mỗi lần; PowerShell chỉ còn dùng một lần cho mỗi phiên để xác minh thời điểm khởi động.
+- Sửa lỗi cửa sổ không bao giờ tự ẩn khi hook không xác định được tiến trình của phiên: phiên giữ lại tiến trình đã biết từ các sự kiện trước, và phiên không rõ tiến trình tự hết hạn sau 10 phút rảnh (60 phút khi đang làm việc hoặc chờ bạn trả lời).
+- Lỗi đọc sự kiện thoáng qua (ví dụ phần mềm diệt virus khoá file) không còn làm cửa sổ ẩn rồi hiện lại. Lỗi kéo dài hơn 1,5 giây được hiện trong tooltip khay hệ thống thay vì báo "Không có agent đang chạy".
+- Mục Show trong menu khay bị vô hiệu kèm ghi chú khi không có agent đang chạy, thay vì bấm không có tác dụng.
+- Cập nhật tự động bắt buộc có checksum `AgentStatus.exe.sha256` hợp lệ và kiểm tra trước khi tải; thiếu checksum thì không cài.
+
 ## 1.1.0 — 22/09/2026
 
 - **Kiểm tra cập nhật** hiện kết quả trong popup nhỏ ở góc dưới bên phải màn hình thay cho hộp thoại giữa màn hình: đang kiểm tra, đã dùng bản mới nhất (tự đóng sau vài giây), có bản mới, hoặc lỗi mạng kèm nút Thử lại. Popup nổi trên cửa sổ khác nhưng không giành focus của CLI; đóng bằng nút × hoặc `Esc`.

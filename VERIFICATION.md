@@ -1,5 +1,11 @@
 # Kết quả kiểm thử
 
+## Ẩn nhanh khi agent thoát, phiên không rõ tiến trình — 29/09/2026
+
+- `npm run check`, 29/29 tests và `npm run smoke` qua. Smoke report: `.test-data/smoke-1790649304723/`. Test mới bao phủ: xác minh thời điểm khởi động một lần cho mỗi owner và phát hiện thoát không cần PowerShell, tra cứu lỗi thì coi là còn sống và thử lại, giữ owner đã biết khi hook thiếu owner, hết hạn phiên không rõ tiến trình theo trạng thái, và ngưỡng 3 lần poll lỗi trước khi báo lỗi.
+- Đo với tiến trình thật: lần kiểm tra đầu 210 ms (qua PowerShell), các lần sau 0 ms, sau khi kill tiến trình trả `false` trong 0 ms.
+- Chưa kiểm tra trên bản đóng gói; chưa kiểm tra nhánh cập nhật thiếu `.sha256` với GitHub thật (release hiện có đủ `AgentStatus.exe.sha256`).
+
 ## Popup cập nhật và tự tải — 22/09/2026
 
 - `npm run check`, 25/25 tests và `npm run smoke` qua. Smoke report: `.test-data/smoke-1790049679212/`. Test mới bao phủ phần logic thuần: đọc payload release, so sánh phiên bản theo số, chọn asset không phân biệt hoa thường, đọc file checksum và tính vị trí neo góc.
