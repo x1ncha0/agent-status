@@ -5,6 +5,8 @@ export interface AgentState {
   status: Status;
   observed: boolean;
   reason: string;
+  /** Set when the event source keeps failing; the state is then unknown. */
+  error?: string;
 }
 export interface HookEvent {
   agent: Agent;

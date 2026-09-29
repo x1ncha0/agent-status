@@ -6,7 +6,8 @@ export function createTray(
   setup: () => void,
   show: () => void,
   update: () => void,
-): Tray {
+  hasAgents: () => boolean,
+): { tray: Tray; refresh: () => void } {
   const iconFile = path.join(app.getAppPath(), 'assets/icon.png');
   const tray = new Tray(nativeImage.createFromPath(iconFile).resize({ width: 16, height: 16 }));
   tray.setToolTip('Agent Status');
@@ -18,7 +19,12 @@ export function createTray(
   const refresh = () =>
     tray.setContextMenu(
       Menu.buildFromTemplate([
-        { label: win.isVisible() ? 'Hide' : 'Show', click: toggle },
+        win.isVisible()
+          ? { label: 'Hide', click: toggle }
+          : hasAgents()
+            ? { label: 'Show', click: toggle }
+            : // Cửa sổ chỉ hiện khi có agent; bật lại tự động khi agent chạy.
+              { label: 'Show (không có agent đang chạy)', enabled: false },
         { label: 'Thiết lập kết nối…', click: setup },
         { label: 'Kiểm tra cập nhật', click: update },
         {
@@ -37,5 +43,5 @@ export function createTray(
   win.on('hide', refresh);
   tray.on('double-click', toggle);
   refresh();
-  return tray;
+  return { tray, refresh };
 }

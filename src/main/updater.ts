@@ -80,15 +80,18 @@ async function download(
   return hash.digest('hex');
 }
 
-async function expectedDigest(release: Release, signal: AbortSignal): Promise<string | undefined> {
+/** Không có checksum hợp lệ thì không cài: file tải về sẽ không được kiểm chứng. */
+async function expectedDigest(release: Release, signal: AbortSignal): Promise<string> {
   const asset = pickAsset(release.assets, `${ASSET}.sha256`);
-  if (!asset) return undefined;
+  if (!asset) throw new Error(`Bản phát hành không có file ${ASSET}.sha256 để kiểm tra.`);
   const response = await fetch(asset.url, {
     signal,
     headers: { Accept: 'application/octet-stream' },
   });
-  if (!response.ok) return undefined;
-  return parseSha256(await response.text(), ASSET);
+  if (!response.ok) throw new Error(`Không tải được checksum: GitHub trả về ${response.status}`);
+  const digest = parseSha256(await response.text(), ASSET);
+  if (!digest) throw new Error(`File ${ASSET}.sha256 không hợp lệ.`);
+  return digest;
 }
 
 /** Windows cho phép rename exe đang chạy, nên đổi tên bản cũ rồi đưa bản mới vào chỗ của nó. */
@@ -157,6 +160,7 @@ export function createUpdater(win: BrowserWindow) {
     render({ phase: 'downloading', received: 0, total: asset.size });
     let emitted = 0;
     try {
+      const expected = await expectedDigest(release, signal);
       const digest = await download(asset.url, target.file, signal, (received, total) => {
         const size = total || asset.size;
         const now = Date.now();
@@ -164,8 +168,7 @@ export function createUpdater(win: BrowserWindow) {
         emitted = now;
         render({ phase: 'downloading', received, total: size });
       });
-      const expected = await expectedDigest(release, signal);
-      if (expected && expected !== digest) throw new Error('Checksum của file tải về không khớp.');
+      if (expected !== digest) throw new Error('Checksum của file tải về không khớp.');
       if (target.swap) {
         render({ phase: 'installing' });
         await wait(INSTALL_DELAY_MS);

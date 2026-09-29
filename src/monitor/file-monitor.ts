@@ -44,10 +44,14 @@ export function parseEvent(value: unknown): HookEvent | undefined {
   return result;
 }
 
+// One failed poll (e.g. antivirus briefly locking an event file) must not hide the window.
+const FAILURE_THRESHOLD = 3;
+
 export class FileMonitor implements Monitor {
   private store: StatusStore;
   private busy = false;
   private error = '';
+  private failures = 0;
   private startedAt = Date.now();
   private restored = false;
   private saved = '';
@@ -61,7 +65,9 @@ export class FileMonitor implements Monitor {
   }
   snapshot() {
     const state = this.store.snapshot();
-    return this.error ? { ...state, observed: false, reason: this.error } : state;
+    return this.failures >= FAILURE_THRESHOLD
+      ? { ...state, observed: false, reason: this.error, error: this.error }
+      : state;
   }
   async poll(): Promise<void> {
     if (this.busy) return;
@@ -135,8 +141,10 @@ export class FileMonitor implements Monitor {
           if (error.code !== 'ENOENT') throw error;
         });
       this.error = '';
+      this.failures = 0;
     } catch (error) {
       this.error = `Không đọc được hook events: ${(error as Error).message}`;
+      this.failures++;
     } finally {
       this.busy = false;
     }

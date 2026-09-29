@@ -599,3 +599,28 @@ test('ownerless sessions expire after inactivity, longer while busy', () => {
   store.expireOwnerless(now + OWNERLESS_TTL_MS.stuck + 1);
   assert.deepEqual(sessions(), ['owned'], 'Owned sessions never expire');
 });
+
+test('a brief source failure keeps the last state; a persistent one is reported', async () => {
+  await mkdir('.test-data', { recursive: true });
+  const directory = await mkdtemp(path.resolve('.test-data/transient-'));
+  let failing = false;
+  const monitor = new FileMonitor(directory, 'claude', classifyClaude, async () => {
+    if (failing) throw new Error('locked');
+    return true;
+  });
+  const owner = { owner_pid: 123, owner_started_at: 1000 };
+  await writeFile(path.join(directory, 'a.json'), JSON.stringify(event('UserPromptSubmit', owner)));
+  await monitor.poll();
+  failing = true;
+  await monitor.poll();
+  await monitor.poll();
+  assert.equal(monitor.snapshot().observed, true, 'Two failed polls do not hide the agent');
+  assert.equal(monitor.snapshot().error, undefined);
+  await monitor.poll();
+  assert.equal(monitor.snapshot().observed, false);
+  assert.match(monitor.snapshot().error ?? '', /locked/);
+  failing = false;
+  await monitor.poll();
+  assert.equal(monitor.snapshot().observed, true);
+  assert.equal(monitor.snapshot().error, undefined);
+});

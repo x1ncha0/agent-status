@@ -45,14 +45,16 @@ else
     };
     const updater = createUpdater(win);
     void cleanupPreviousUpdate();
-    tray = createTray(
+    const trayMenu = createTray(
       win,
       () => {
         void setup.show();
       },
       show,
       updater.check,
+      () => hasAgents,
     );
+    tray = trayMenu.tray;
     win.once('ready-to-show', () => {
       ready = true;
       show();
@@ -75,17 +77,23 @@ else
           // Only restore on an empty -> active transition, preserving manual Hide while agents run.
           if (active) show();
           else win.hide();
+          trayMenu.refresh();
         }
         const labels = {
           available: 'Sẵn sàng',
           working: 'Đang suy nghĩ / làm việc',
           stuck: 'Cần bạn can thiệp',
         };
+        const lines = states.flatMap((s) =>
+          s.error
+            ? [`${s.agent}: lỗi — ${s.error}`]
+            : s.observed
+              ? [`${s.agent}: ${labels[s.status]}`]
+              : [],
+        );
+        // Windows cắt tooltip khay ở 127 ký tự.
         tray.setToolTip(
-          states
-            .filter((s) => s.observed)
-            .map((s) => `${s.agent}: ${labels[s.status]}`)
-            .join('\n') || 'Agent Status: Không có agent đang chạy',
+          (lines.join('\n') || 'Agent Status: Không có agent đang chạy').slice(0, 127),
         );
       }
     };
