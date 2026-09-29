@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readdir, readFile, copyFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { StatusStore, type Agent, type HookEvent } from '../monitor/status';
+import { OWNERLESS_TTL_MS, StatusStore, type Agent, type HookEvent } from '../monitor/status';
 import { classifyClaude } from '../monitor/claude';
 import { classifyCodex } from '../monitor/codex';
 import { FileMonitor, parseEvent } from '../monitor/file-monitor';
+import { createOwnerProbe, isRunning } from '../monitor/process-owner';
 
 const event = (name: string, extra: Partial<HookEvent> = {}): HookEvent => ({
   agent: 'claude',
@@ -527,4 +528,99 @@ test('installer migrates console-hiding hooks without duplicates or changing oth
   assert.equal(result.status, 0, result.stderr);
   const events = await readdir(path.join(data, 'events/codex'));
   assert.equal(events.length, 1, 'The migrated hook still forwards stdin to the writer');
+});
+
+test('owner probe verifies start time once and reports exit without spawning a shell', async () => {
+  const alive = new Set([123]);
+  let lookups = 0;
+  const probe = createOwnerProbe(
+    (pid) => alive.has(pid),
+    async () => {
+      lookups++;
+      return 1000;
+    },
+  );
+  assert.equal(await probe(123, 1000), true);
+  assert.equal(await probe(123, 1000), true);
+  assert.equal(await probe(123, 5000), false, 'A reused PID with another start time is dead');
+  assert.equal(lookups, 2, 'Each owner is looked up once while it keeps running');
+  alive.delete(123);
+  assert.equal(await probe(123, 1000), false);
+  assert.equal(lookups, 2, 'Exit is detected by the liveness check alone');
+
+  let attempts = 0;
+  const flaky = createOwnerProbe(
+    () => true,
+    async () => {
+      if (++attempts === 1) throw new Error('powershell unavailable');
+      return 9999;
+    },
+  );
+  assert.equal(await flaky(7, 1000), true, 'A running PID is not dropped when lookup fails');
+  assert.equal(await flaky(7, 1000), false, 'A failed lookup is retried, not cached');
+  assert.equal(attempts, 2);
+
+  assert.equal(isRunning(process.pid), true);
+  assert.equal(isRunning(2 ** 31 - 2), false);
+});
+
+test('a hook that misses its owner keeps the session tied to the known owner', async () => {
+  await mkdir('.test-data', { recursive: true });
+  const directory = await mkdtemp(path.resolve('.test-data/owner-carry-'));
+  let running = true;
+  const monitor = new FileMonitor(directory, 'claude', classifyClaude, async () => running);
+  const owner = { owner_pid: 123, owner_started_at: 1000 };
+  await writeFile(path.join(directory, 'a.json'), JSON.stringify(event('UserPromptSubmit', owner)));
+  await monitor.poll();
+  await writeFile(
+    path.join(directory, 'b.json'),
+    JSON.stringify(event('Stop', { timestamp: Date.now() + 1 })),
+  );
+  await monitor.poll();
+  assert.equal(monitor.snapshot().status, 'available');
+  running = false;
+  await monitor.poll();
+  assert.equal(monitor.snapshot().observed, false, 'Exit is detected despite the ownerless event');
+});
+
+test('ownerless sessions expire after inactivity, longer while busy', () => {
+  const now = Date.now();
+  const store = new StatusStore('claude', classifyClaude);
+  const owner = { owner_pid: 1, owner_started_at: 1 };
+  store.accept(event('Stop', { session_id: 'idle', timestamp: now }));
+  store.accept(event('PermissionRequest', { session_id: 'waiting', timestamp: now }));
+  store.accept(event('Stop', { session_id: 'owned', timestamp: now, ...owner }));
+  const sessions = () => [...new Set(store.events().map((e) => e.session_id))].sort();
+  store.expireOwnerless(now + OWNERLESS_TTL_MS.available - 1);
+  assert.deepEqual(sessions(), ['idle', 'owned', 'waiting']);
+  store.expireOwnerless(now + OWNERLESS_TTL_MS.available + 1);
+  assert.deepEqual(sessions(), ['owned', 'waiting'], 'Only the idle ownerless session expires');
+  assert.equal(store.snapshot().status, 'stuck');
+  store.expireOwnerless(now + OWNERLESS_TTL_MS.stuck + 1);
+  assert.deepEqual(sessions(), ['owned'], 'Owned sessions never expire');
+});
+
+test('a brief source failure keeps the last state; a persistent one is reported', async () => {
+  await mkdir('.test-data', { recursive: true });
+  const directory = await mkdtemp(path.resolve('.test-data/transient-'));
+  let failing = false;
+  const monitor = new FileMonitor(directory, 'claude', classifyClaude, async () => {
+    if (failing) throw new Error('locked');
+    return true;
+  });
+  const owner = { owner_pid: 123, owner_started_at: 1000 };
+  await writeFile(path.join(directory, 'a.json'), JSON.stringify(event('UserPromptSubmit', owner)));
+  await monitor.poll();
+  failing = true;
+  await monitor.poll();
+  await monitor.poll();
+  assert.equal(monitor.snapshot().observed, true, 'Two failed polls do not hide the agent');
+  assert.equal(monitor.snapshot().error, undefined);
+  await monitor.poll();
+  assert.equal(monitor.snapshot().observed, false);
+  assert.match(monitor.snapshot().error ?? '', /locked/);
+  failing = false;
+  await monitor.poll();
+  assert.equal(monitor.snapshot().observed, true);
+  assert.equal(monitor.snapshot().error, undefined);
 });

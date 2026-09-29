@@ -1,38 +1,62 @@
 import { execFile } from 'node:child_process';
-import path from 'node:path';
+import { POWERSHELL } from '../common/powershell';
 
 export type OwnerAlive = (pid: number, startedAt: number) => Promise<boolean>;
 
-// PID alone can be reused after a restart. Check both PID and process creation time.
-export function createOwnerProbe(): OwnerAlive {
-  const cache = new Map<string, { until: number; result: Promise<boolean> }>();
+export function isRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    // EPERM: process exists but belongs to another user.
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+export function processStartTime(pid: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      POWERSHELL,
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `$p = Get-Process -Id ${pid} -ErrorAction SilentlyContinue; if ($p) { ([DateTimeOffset]$p.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds() } else { 0 }`,
+      ],
+      { windowsHide: true, timeout: 3000 },
+      (error, stdout) => {
+        if (error) reject(error);
+        else resolve(Number(stdout.trim()));
+      },
+    );
+  });
+}
+
+// PID alone can be reused after a restart, so the creation time is verified once per owner.
+// Afterwards a cheap liveness check is enough: a PID cannot be reused while its process lives.
+export function createOwnerProbe(
+  running: (pid: number) => boolean = isRunning,
+  startTime: (pid: number) => Promise<number> = processStartTime,
+): OwnerAlive {
+  const verified = new Map<string, Promise<boolean>>();
   return (pid, startedAt) => {
     const key = `${pid}:${startedAt}`;
-    const now = Date.now();
-    for (const [entry, value] of cache) if (value.until < now) cache.delete(entry);
-    const cached = cache.get(key);
-    if (cached) return cached.result;
-    const result = new Promise<boolean>((resolve, reject) => {
-      const shell = path.join(
-        process.env.SystemRoot || 'C:\\Windows',
-        'System32/WindowsPowerShell/v1.0/powershell.exe',
-      );
-      execFile(
-        shell,
-        [
-          '-NoProfile',
-          '-NonInteractive',
-          '-Command',
-          `$p = Get-Process -Id ${pid} -ErrorAction SilentlyContinue; if ($p) { ([DateTimeOffset]$p.StartTime.ToUniversalTime()).ToUnixTimeMilliseconds() } else { 0 }`,
-        ],
-        { windowsHide: true, timeout: 3000 },
-        (error, stdout) => {
-          if (error) reject(error);
-          else resolve(Math.abs(Number(stdout.trim()) - startedAt) < 10);
-        },
-      );
-    });
-    cache.set(key, { until: now + 2000, result });
+    if (!running(pid)) {
+      verified.delete(key);
+      return Promise.resolve(false);
+    }
+    const cached = verified.get(key);
+    if (cached) return cached;
+    const result = startTime(pid).then(
+      (actual) => Math.abs(actual - startedAt) < 10,
+      () => {
+        // The PID is running but its start time is unknown: assume it is still the owner
+        // rather than failing the poll (which hides the window), and verify again next poll.
+        verified.delete(key);
+        return true;
+      },
+    );
+    verified.set(key, result);
     return result;
   };
 }

@@ -50,4 +50,4 @@ Nếu thư mục chứa `.exe` không cho ghi, file tải về được lưu và
 - App không lưu prompt, arguments, tool output hoặc transcript; chỉ lưu metadata cần để hiển thị trạng thái.
 - Executable chưa được code-sign.
 
-Xem thêm [release notes](RELEASE_NOTES.md) và [kết quả kiểm tra](VERIFICATION.md).
+Xem thêm [release notes](RELEASE_NOTES.md).

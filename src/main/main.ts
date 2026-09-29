@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { createWindow, showWindow } from './window';
 import { createTray } from './tray';
+import { trayTooltip } from './tray-tooltip';
 import { FileMonitor } from '../monitor/file-monitor';
 import { classifyClaude } from '../monitor/claude';
 import { classifyCodex } from '../monitor/codex';
@@ -45,14 +46,16 @@ else
     };
     const updater = createUpdater(win);
     void cleanupPreviousUpdate();
-    tray = createTray(
+    const trayMenu = createTray(
       win,
       () => {
         void setup.show();
       },
       show,
       updater.check,
+      () => hasAgents,
     );
+    tray = trayMenu.tray;
     win.once('ready-to-show', () => {
       ready = true;
       show();
@@ -61,33 +64,24 @@ else
     app.on('second-instance', show);
     let previous = '';
     const notifyAttention = createAttentionNotifier(() => shell.beep());
+    // Only restore on an empty -> active transition, preserving manual Hide while agents run.
+    const updateVisibility = (active: boolean) => {
+      if (active === hasAgents) return;
+      hasAgents = active;
+      if (active) show();
+      else win.hide();
+      trayMenu.refresh();
+    };
     const tick = async () => {
       await Promise.all(monitors.map((monitor) => monitor.poll()));
       const states = snapshot();
       notifyAttention(states);
       const serialized = JSON.stringify(states);
-      if (serialized !== previous && !win.isDestroyed()) {
-        previous = serialized;
-        win.webContents.send('status:changed', states);
-        const active = states.some((state) => state.observed);
-        if (active !== hasAgents) {
-          hasAgents = active;
-          // Only restore on an empty -> active transition, preserving manual Hide while agents run.
-          if (active) show();
-          else win.hide();
-        }
-        const labels = {
-          available: 'Sẵn sàng',
-          working: 'Đang suy nghĩ / làm việc',
-          stuck: 'Cần bạn can thiệp',
-        };
-        tray.setToolTip(
-          states
-            .filter((s) => s.observed)
-            .map((s) => `${s.agent}: ${labels[s.status]}`)
-            .join('\n') || 'Agent Status: Không có agent đang chạy',
-        );
-      }
+      if (serialized === previous || win.isDestroyed()) return;
+      previous = serialized;
+      win.webContents.send('status:changed', states);
+      updateVisibility(states.some((state) => state.observed));
+      tray.setToolTip(trayTooltip(states));
     };
     const timer = setInterval(() => void tick(), 500);
     void tick();
