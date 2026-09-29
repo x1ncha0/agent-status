@@ -7,6 +7,7 @@ import { StatusStore, type Agent, type HookEvent } from '../monitor/status';
 import { classifyClaude } from '../monitor/claude';
 import { classifyCodex } from '../monitor/codex';
 import { FileMonitor, parseEvent } from '../monitor/file-monitor';
+import { createOwnerProbe, isRunning } from '../monitor/process-owner';
 
 const event = (name: string, extra: Partial<HookEvent> = {}): HookEvent => ({
   agent: 'claude',
@@ -527,4 +528,38 @@ test('installer migrates console-hiding hooks without duplicates or changing oth
   assert.equal(result.status, 0, result.stderr);
   const events = await readdir(path.join(data, 'events/codex'));
   assert.equal(events.length, 1, 'The migrated hook still forwards stdin to the writer');
+});
+
+test('owner probe verifies start time once and reports exit without spawning a shell', async () => {
+  const alive = new Set([123]);
+  let lookups = 0;
+  const probe = createOwnerProbe(
+    (pid) => alive.has(pid),
+    async () => {
+      lookups++;
+      return 1000;
+    },
+  );
+  assert.equal(await probe(123, 1000), true);
+  assert.equal(await probe(123, 1000), true);
+  assert.equal(await probe(123, 5000), false, 'A reused PID with another start time is dead');
+  assert.equal(lookups, 2, 'Each owner is looked up once while it keeps running');
+  alive.delete(123);
+  assert.equal(await probe(123, 1000), false);
+  assert.equal(lookups, 2, 'Exit is detected by the liveness check alone');
+
+  let fail = true;
+  const flaky = createOwnerProbe(
+    () => true,
+    async () => {
+      if (fail) throw new Error('powershell unavailable');
+      return 1000;
+    },
+  );
+  await assert.rejects(flaky(7, 1000));
+  fail = false;
+  assert.equal(await flaky(7, 1000), true, 'A failed lookup is retried, not cached');
+
+  assert.equal(isRunning(process.pid), true);
+  assert.equal(isRunning(2 ** 31 - 2), false);
 });
