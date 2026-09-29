@@ -49,12 +49,18 @@ export function createOwnerProbe(
       verified.delete(key);
       return Promise.resolve(false);
     }
-    let result = verified.get(key);
-    if (!result) {
-      result = startTime(pid).then((actual) => Math.abs(actual - startedAt) < 10);
-      result.catch(() => verified.delete(key));
-      verified.set(key, result);
-    }
+    const cached = verified.get(key);
+    if (cached) return cached;
+    const result = startTime(pid).then(
+      (actual) => Math.abs(actual - startedAt) < 10,
+      () => {
+        // The PID is running but its start time is unknown: assume it is still the owner
+        // rather than failing the poll (which hides the window), and verify again next poll.
+        verified.delete(key);
+        return true;
+      },
+    );
+    verified.set(key, result);
     return result;
   };
 }

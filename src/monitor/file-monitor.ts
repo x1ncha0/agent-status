@@ -118,6 +118,7 @@ export class FileMonitor implements Monitor {
         .sort((a, b) => a.timestamp - b.timestamp)
         .filter(active)
         .forEach((event) => this.store.accept(event));
+      this.store.expireOwnerless(Date.now());
       const serialized = JSON.stringify(
         this.store
           .events()

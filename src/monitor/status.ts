@@ -51,6 +51,13 @@ export function commonEvent(event: HookEvent): Transition | undefined {
   }
 }
 
+// Idle sessions expire quickly; busy or waiting ones get time for long tools and absent users.
+export const OWNERLESS_TTL_MS: Record<Status, number> = {
+  available: 10 * 60_000,
+  working: 60 * 60_000,
+  stuck: 60 * 60_000,
+};
+
 export class StatusStore {
   private sessions = new Map<
     string,
@@ -63,6 +70,20 @@ export class StatusStore {
   forget(sessionId: string): void {
     this.sessions.delete(sessionId);
   }
+  // Without an owner process, liveness is unknown and a missed SessionEnd would keep the
+  // session forever. Drop it after inactivity; a later hook event brings it back.
+  expireOwnerless(now: number): void {
+    for (const [id, { transition, event, pending }] of this.sessions) {
+      if (event.owner_pid) continue;
+      const request = pending.values().next().value as HookEvent | undefined;
+      const status = transition.ended
+        ? 'available'
+        : request
+          ? this.classify(request)!.status
+          : transition.status;
+      if (now - event.timestamp > OWNERLESS_TTL_MS[status]) this.sessions.delete(id);
+    }
+  }
   // Only status metadata is persisted. Pending requests must survive unrelated parallel tools.
   events(): HookEvent[] {
     return [...this.sessions.values()].flatMap((s) => [...s.pending.values(), s.event]);
@@ -73,6 +94,14 @@ export class StatusStore {
     if (!transition) return;
     const prior = this.sessions.get(event.session_id);
     if (prior && event.timestamp < prior.event.timestamp) return;
+    // A hook can fail to resolve its owner (e.g. WMI timeout); keep the session's known owner
+    // so its exit is still detected.
+    if (!event.owner_pid && prior?.event.owner_pid)
+      event = {
+        ...event,
+        owner_pid: prior.event.owner_pid,
+        owner_started_at: prior.event.owner_started_at,
+      };
     const pending = prior?.pending ?? new Map<string, HookEvent>();
     const name = event.hook_event_name;
     if (

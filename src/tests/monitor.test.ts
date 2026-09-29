@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readdir, readFile, copyFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { StatusStore, type Agent, type HookEvent } from '../monitor/status';
+import { OWNERLESS_TTL_MS, StatusStore, type Agent, type HookEvent } from '../monitor/status';
 import { classifyClaude } from '../monitor/claude';
 import { classifyCodex } from '../monitor/codex';
 import { FileMonitor, parseEvent } from '../monitor/file-monitor';
@@ -548,18 +548,54 @@ test('owner probe verifies start time once and reports exit without spawning a s
   assert.equal(await probe(123, 1000), false);
   assert.equal(lookups, 2, 'Exit is detected by the liveness check alone');
 
-  let fail = true;
+  let attempts = 0;
   const flaky = createOwnerProbe(
     () => true,
     async () => {
-      if (fail) throw new Error('powershell unavailable');
-      return 1000;
+      if (++attempts === 1) throw new Error('powershell unavailable');
+      return 9999;
     },
   );
-  await assert.rejects(flaky(7, 1000));
-  fail = false;
-  assert.equal(await flaky(7, 1000), true, 'A failed lookup is retried, not cached');
+  assert.equal(await flaky(7, 1000), true, 'A running PID is not dropped when lookup fails');
+  assert.equal(await flaky(7, 1000), false, 'A failed lookup is retried, not cached');
+  assert.equal(attempts, 2);
 
   assert.equal(isRunning(process.pid), true);
   assert.equal(isRunning(2 ** 31 - 2), false);
+});
+
+test('a hook that misses its owner keeps the session tied to the known owner', async () => {
+  await mkdir('.test-data', { recursive: true });
+  const directory = await mkdtemp(path.resolve('.test-data/owner-carry-'));
+  let running = true;
+  const monitor = new FileMonitor(directory, 'claude', classifyClaude, async () => running);
+  const owner = { owner_pid: 123, owner_started_at: 1000 };
+  await writeFile(path.join(directory, 'a.json'), JSON.stringify(event('UserPromptSubmit', owner)));
+  await monitor.poll();
+  await writeFile(
+    path.join(directory, 'b.json'),
+    JSON.stringify(event('Stop', { timestamp: Date.now() + 1 })),
+  );
+  await monitor.poll();
+  assert.equal(monitor.snapshot().status, 'available');
+  running = false;
+  await monitor.poll();
+  assert.equal(monitor.snapshot().observed, false, 'Exit is detected despite the ownerless event');
+});
+
+test('ownerless sessions expire after inactivity, longer while busy', () => {
+  const now = Date.now();
+  const store = new StatusStore('claude', classifyClaude);
+  const owner = { owner_pid: 1, owner_started_at: 1 };
+  store.accept(event('Stop', { session_id: 'idle', timestamp: now }));
+  store.accept(event('PermissionRequest', { session_id: 'waiting', timestamp: now }));
+  store.accept(event('Stop', { session_id: 'owned', timestamp: now, ...owner }));
+  const sessions = () => [...new Set(store.events().map((e) => e.session_id))].sort();
+  store.expireOwnerless(now + OWNERLESS_TTL_MS.available - 1);
+  assert.deepEqual(sessions(), ['idle', 'owned', 'waiting']);
+  store.expireOwnerless(now + OWNERLESS_TTL_MS.available + 1);
+  assert.deepEqual(sessions(), ['owned', 'waiting'], 'Only the idle ownerless session expires');
+  assert.equal(store.snapshot().status, 'stuck');
+  store.expireOwnerless(now + OWNERLESS_TTL_MS.stuck + 1);
+  assert.deepEqual(sessions(), ['owned'], 'Owned sessions never expire');
 });
