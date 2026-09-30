@@ -1,7 +1,7 @@
 {
   "name": "agent-status",
-  "version": "1.1.1",
-  "description": "Local floating status indicators for Claude Code and Codex CLI",
+  "version": "1.2.0",
+  "description": "Local floating status indicators for Claude Code and Codex CLI on Windows and macOS",
   "author": "Agent Status",
   "license": "MIT",
   "main": "dist/main/main.js",
@@ -17,7 +17,9 @@
     "start": "npm run build && electron .",
     "test": "npm run build && node --test dist/tests/*.test.js",
     "smoke": "npm run build && electron scripts/smoke.cjs",
-    "dist": "npm run build && electron-builder --win portable --x64 && node scripts/package-files.cjs"
+    "dist": "npm run dist:win",
+    "dist:win": "npm run build && electron-builder --win portable --x64 && node scripts/package-files.cjs",
+    "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64 && node scripts/package-files.cjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -57,6 +59,18 @@
     },
     "portable": {
       "artifactName": "AgentStatus.exe"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.developer-tools",
+      "icon": "assets/icon-mac.png",
+      "identity": "-",
+      "extendInfo": {
+        "LSUIElement": true
+      }
+    },
+    "dmg": {
+      "artifactName": "AgentStatus-mac-${arch}.${ext}"
     }
   }
 }

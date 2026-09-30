@@ -7,6 +7,11 @@
 )
 $ErrorActionPreference = 'Stop'
 if ($Apply -and $Check) { throw 'Use either -Apply or -Check.' }
+# Get-FileHash fails to load when PSModulePath is inherited from PowerShell 7.
+function Get-Sha256([string]$Path) {
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { [BitConverter]::ToString($sha.ComputeHash([IO.File]::ReadAllBytes($Path))) } finally { $sha.Dispose() }
+}
 $scriptPath = Join-Path $DataDir 'Write-AgentEvent.ps1'
 $ownerSource = Join-Path $PSScriptRoot 'ProcessOwner.cs'
 $ownerInstalledSource = Join-Path $DataDir 'ProcessOwner.cs'
@@ -50,11 +55,11 @@ foreach ($agent in @('claude','codex')) {
 }
 if ($Check) {
     $writerCurrent = (Test-Path -LiteralPath $scriptPath) -and
-        ((Get-FileHash -LiteralPath $scriptPath -Algorithm SHA256).Hash -eq
-         (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'Write-AgentEvent.ps1') -Algorithm SHA256).Hash) -and
+        ((Get-Sha256 $scriptPath) -eq
+         (Get-Sha256 (Join-Path $PSScriptRoot 'Write-AgentEvent.ps1'))) -and
         (Test-Path -LiteralPath $ownerAssembly) -and (Test-Path -LiteralPath $ownerInstalledSource) -and
-        ((Get-FileHash -LiteralPath $ownerInstalledSource -Algorithm SHA256).Hash -eq
-         (Get-FileHash -LiteralPath $ownerSource -Algorithm SHA256).Hash)
+        ((Get-Sha256 $ownerInstalledSource) -eq
+         (Get-Sha256 $ownerSource))
     @{ writerCurrent = $writerCurrent; agents = $agents; needsInstall = (-not $writerCurrent -or @($agents | Where-Object { -not $_.configured }).Count -gt 0) } |
         ConvertTo-Json -Depth 5 -Compress
     exit 0

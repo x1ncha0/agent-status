@@ -44,6 +44,9 @@ export function createWindow(dataDir: string): BrowserWindow {
       sandbox: true,
     },
   });
+  // Menu bar apps float over every Space and full-screen app.
+  if (process.platform === 'darwin')
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', (event) => event.preventDefault());
   let saveTimer: ReturnType<typeof setTimeout> | undefined;

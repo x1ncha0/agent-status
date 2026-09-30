@@ -74,3 +74,11 @@ export function parseSha256(text: string, name: string): string | undefined {
   }
   return undefined;
 }
+
+/** Release file this build updates from; undefined when no build is published for it. */
+export function updateAsset(platform: NodeJS.Platform, arch: string): string | undefined {
+  if (platform === 'win32') return 'AgentStatus.exe';
+  if (platform === 'darwin' && (arch === 'arm64' || arch === 'x64'))
+    return `AgentStatus-mac-${arch}.dmg`;
+  return undefined;
+}
