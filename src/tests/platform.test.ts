@@ -30,3 +30,12 @@ test('ps lstart output parses as local time, including single-digit days', () =>
   assert.equal(parseLstart('garbage'), 0);
   assert.equal(parseLstart('Tue Xyz 30 10:11:12 2026'), 0);
 });
+
+import { updateAsset } from '../main/update-release';
+test('update asset matches the release file for this platform and CPU', () => {
+  assert.equal(updateAsset('win32', 'x64'), 'AgentStatus.exe');
+  assert.equal(updateAsset('darwin', 'arm64'), 'AgentStatus-mac-arm64.dmg');
+  assert.equal(updateAsset('darwin', 'x64'), 'AgentStatus-mac-x64.dmg');
+  assert.equal(updateAsset('darwin', 'ia32'), undefined);
+  assert.equal(updateAsset('linux', 'x64'), undefined);
+});

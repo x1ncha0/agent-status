@@ -6,11 +6,18 @@ import path from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream } from 'node:stream/web';
-import { isNewer, parseRelease, parseSha256, pickAsset, type Release } from './update-release';
+import {
+  updateAsset,
+  isNewer,
+  parseRelease,
+  parseSha256,
+  pickAsset,
+  type Release,
+} from './update-release';
 import { createUpdatePopup, type UpdateAction, type UpdateView } from './update-window';
 
 const RELEASES_API = 'https://api.github.com/repos/x1ncha0/agent-status/releases/latest';
-const ASSET = 'AgentStatus.exe';
+const ASSET = updateAsset(process.platform, process.arch);
 const LATEST_CLOSE_MS = 4000;
 const PROGRESS_MS = 100;
 const INSTALL_DELAY_MS = 700;
@@ -37,7 +44,10 @@ export async function cleanupPreviousUpdate(): Promise<void> {
 }
 
 /** Ghi cạnh exe đang chạy để thay thế được; thư mục chỉ đọc thì rơi về Downloads. */
-async function chooseTarget(version: string): Promise<{ file: string; swap?: string }> {
+async function chooseTarget(
+  version: string,
+  asset: string,
+): Promise<{ file: string; swap?: string }> {
   const exe = portableExe();
   if (exe) {
     try {
@@ -47,7 +57,12 @@ async function chooseTarget(version: string): Promise<{ file: string; swap?: str
       /* Thư mục exe không ghi được. */
     }
   }
-  return { file: path.join(app.getPath('downloads'), `AgentStatus-${version}.exe`) };
+  return {
+    file: path.join(
+      app.getPath('downloads'),
+      asset.replace(/^AgentStatus/, `AgentStatus-${version}`),
+    ),
+  };
 }
 
 async function download(
@@ -81,16 +96,20 @@ async function download(
 }
 
 /** Không có checksum hợp lệ thì không cài: file tải về sẽ không được kiểm chứng. */
-async function expectedDigest(release: Release, signal: AbortSignal): Promise<string> {
-  const asset = pickAsset(release.assets, `${ASSET}.sha256`);
-  if (!asset) throw new Error(`Bản phát hành không có file ${ASSET}.sha256 để kiểm tra.`);
+async function expectedDigest(
+  release: Release,
+  assetName: string,
+  signal: AbortSignal,
+): Promise<string> {
+  const asset = pickAsset(release.assets, `${assetName}.sha256`);
+  if (!asset) throw new Error(`Bản phát hành không có file ${assetName}.sha256 để kiểm tra.`);
   const response = await fetch(asset.url, {
     signal,
     headers: { Accept: 'application/octet-stream' },
   });
   if (!response.ok) throw new Error(`Không tải được checksum: GitHub trả về ${response.status}`);
-  const digest = parseSha256(await response.text(), ASSET);
-  if (!digest) throw new Error(`File ${ASSET}.sha256 không hợp lệ.`);
+  const digest = parseSha256(await response.text(), assetName);
+  if (!digest) throw new Error(`File ${assetName}.sha256 không hợp lệ.`);
   return digest;
 }
 
@@ -147,6 +166,10 @@ export function createUpdater(win: BrowserWindow) {
 
   const start = async () => {
     if (busy || !release) return;
+    if (!ASSET) {
+      render({ phase: 'error', message: 'Ch?a c? b?n c?p nh?t t? ??ng cho h? ?i?u h?nh n?y.' });
+      return;
+    }
     const asset = pickAsset(release.assets, ASSET);
     if (!asset) {
       render({ phase: 'error', message: `Bản phát hành không có file ${ASSET}.` });
@@ -156,11 +179,11 @@ export function createUpdater(win: BrowserWindow) {
     busy = true;
     controller = new AbortController();
     const { signal } = controller;
-    const target = await chooseTarget(release.version);
+    const target = await chooseTarget(release.version, ASSET);
     render({ phase: 'downloading', received: 0, total: asset.size });
     let emitted = 0;
     try {
-      const expected = await expectedDigest(release, signal);
+      const expected = await expectedDigest(release, ASSET, signal);
       const digest = await download(asset.url, target.file, signal, (received, total) => {
         const size = total || asset.size;
         const now = Date.now();
