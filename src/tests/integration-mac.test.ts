@@ -1,3 +1,4 @@
+import { parseLstart } from '../monitor/process-owner';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
@@ -122,4 +123,91 @@ test('mac installer: malformed settings abort without touching any file', async 
   await assert.rejects(backend.apply(), /settings\.json/);
   assert.equal(await readFile(settings, 'utf8'), '{ "theme": ');
   await assert.rejects(readFile(path.join(paths.codexHome, 'hooks.json')), /ENOENT/);
+});
+
+import { spawnSync } from 'node:child_process';
+import { symlink } from 'node:fs/promises';
+
+const macOnly = { skip: process.platform !== 'darwin' && 'needs macOS osascript' };
+const writer = path.resolve('integration/mac', MAC_WRITER);
+const payload = (extra: Record<string, unknown> = {}) =>
+  JSON.stringify({
+    session_id: 'abc',
+    hook_event_name: 'PreToolUse',
+    tool_name: 'Bash',
+    tool_use_id: 'tu1',
+    prompt: 'SECRET PROMPT',
+    tool_input: { command: 'SECRET INPUT', nothing: null },
+    tool_response: 'x'.repeat(2 * 1024 * 1024),
+    ...extra,
+  });
+
+test('JXA writer records only allowed fields, prints nothing, exits 0', macOnly, async () => {
+  const { paths } = await setup();
+  const result = spawnSync(
+    '/usr/bin/osascript',
+    ['-l', 'JavaScript', writer, 'claude', paths.dataDir],
+    {
+      input: payload(),
+      encoding: 'utf8',
+    },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '');
+  const dir = path.join(paths.dataDir, 'events', 'claude');
+  const files = await readdir(dir);
+  assert.deepEqual(
+    files.filter((f) => !f.endsWith('.json')),
+    [],
+  );
+  assert.equal(files.length, 1);
+  const text = await readFile(path.join(dir, files[0]), 'utf8');
+  assert.doesNotMatch(text, /SECRET|xxxx/);
+  const record = JSON.parse(text);
+  assert.equal(record.agent, 'claude');
+  assert.equal(record.session_id, 'abc');
+  assert.equal(record.hook_event_name, 'PreToolUse');
+  assert.equal(record.tool_name, 'Bash');
+  assert.equal(record.tool_use_id, 'tu1');
+  assert.ok(Math.abs(record.timestamp - Date.now()) < 60000);
+});
+
+test('JXA writer ignores incomplete payloads and unknown agents', macOnly, async () => {
+  const { paths } = await setup();
+  for (const [agent, input] of [
+    ['claude', JSON.stringify({ hook_event_name: 'Stop' })],
+    ['claude', 'not json'],
+    ['other', payload()],
+  ]) {
+    const result = spawnSync(
+      '/usr/bin/osascript',
+      ['-l', 'JavaScript', writer, agent, paths.dataDir],
+      {
+        input,
+        encoding: 'utf8',
+      },
+    );
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout, '');
+  }
+  await assert.rejects(readdir(path.join(paths.dataDir, 'events')), /ENOENT/);
+});
+
+test('JXA writer finds the owning CLI process and its start time', macOnly, async () => {
+  const { root, paths } = await setup();
+  const fakeClaude = path.join(root, 'claude');
+  await symlink('/bin/sh', fakeClaude);
+  const quote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+  // The trailing `; true` stops sh from exec-ing osascript in place of itself.
+  const script = `LC_ALL=C /bin/ps -o lstart= -p $; /usr/bin/osascript -l JavaScript ${quote(writer)} claude ${quote(paths.dataDir)}; echo "PID=$$"; true`;
+  const result = spawnSync(fakeClaude, ['-c', script], { input: payload(), encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  const pid = Number(/PID=(\d+)/.exec(result.stdout)?.[1]);
+  const dir = path.join(paths.dataDir, 'events', 'claude');
+  const record = JSON.parse(await readFile(path.join(dir, (await readdir(dir))[0]), 'utf8'));
+  assert.equal(record.owner_pid, pid);
+  assert.equal(record.owner_started_at, parseLstart(result.stdout.split('\n')[0]));
+  // The shell has exited; the start time was captured while it ran, at 1 s resolution.
+  assert.ok(Math.abs(record.owner_started_at - Date.now()) < 60000);
+  assert.equal(record.owner_started_at % 1000, 0);
 });

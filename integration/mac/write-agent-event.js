@@ -45,7 +45,7 @@ function processTable() {
 
 function matches(agent, args) {
   const name = args.split(' ')[0].split('/').pop();
-  if (name === agent || name.startsWith(agent + '-')) return true;
+  if (name === agent) return true;
   // npm Claude runs under node; the native installer runs a versioned file via a symlink.
   return agent === 'claude' && (args.includes('claude-code') || args.includes('/claude/versions/'));
 }
