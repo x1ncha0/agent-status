@@ -1,5 +1,11 @@
 # Agent Status — Release notes
 
+## Chưa phát hành
+
+- Theo dõi thêm **Antigravity** (Antigravity 2.0 và Antigravity IDE) trên Windows và macOS: đèn vàng khi agent đang suy nghĩ hoặc chạy tool, xanh khi đã dừng. Antigravity không có đèn đỏ vì không báo lúc đang chờ bạn duyệt. Đèn tự ẩn khi thoát Antigravity.
+- Thiết lập kết nối thêm một mục `agent-status` vào `~/.gemini/config/hooks.json` (chỉ khi máy đã có `~/.gemini`), giữ nguyên các hook khác và sao lưu file cũ. Hook chỉ báo trạng thái, không đổi quyền hay hành vi của agent.
+- Cửa sổ mới mở lần đầu rộng 165 DIP để đủ chỗ cho ba đèn; kích thước đã lưu giữ nguyên. Tooltip khay hiện tên agent (Claude, Codex, Antigravity).
+
 ## 1.2.1 — 30/09/2026
 
 - Sửa lỗi trên macOS cửa sổ không bao giờ hiện và menu khay luôn báo "không có agent đang chạy" dù Claude hoặc Codex đang chạy: app bỏ qua file sự kiện do hook ghi vì tên file là UUID chữ hoa. App giờ đọc được cả tên chữ hoa lẫn chữ thường, nên hook đã cài không cần cài lại; hook mới ghi tên chữ thường.
