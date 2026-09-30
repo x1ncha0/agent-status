@@ -3,11 +3,13 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+import { AGENT_NAMES } from '../monitor/status';
 import type { IntegrationBackend } from './integration-backend';
 
 const nextSteps = (writer: string) =>
   'Claude Code: mở lại CLI rồi gửi một yêu cầu.\n\n' +
-  `Codex: mở terminal mới, chạy codex, vào /hooks để Review / Trust các hook gọi ${writer}, rồi gửi một yêu cầu. Phiên đã mở trước khi cài có thể chưa nhận cấu hình mới.`;
+  `Codex: mở terminal mới, chạy codex, vào /hooks để Review / Trust các hook gọi ${writer}, rồi gửi một yêu cầu. Phiên đã mở trước khi cài có thể chưa nhận cấu hình mới.\n\n` +
+  'Antigravity: mở cuộc hội thoại mới rồi gửi một yêu cầu.';
 
 export function createIntegrationSetup(
   win: BrowserWindow,
@@ -36,20 +38,18 @@ export function createIntegrationSetup(
       const summary = current.agents
         .map(
           (agent) =>
-            `${agent.agent === 'claude' ? 'Claude Code' : 'Codex'}: ${agent.configured && current.writerCurrent ? 'đã cài kết nối' : 'cần thiết lập / cập nhật'}`,
+            `${agent.agent === 'claude' ? 'Claude Code' : AGENT_NAMES[agent.agent]}: ${agent.configured && current.writerCurrent ? 'đã cài kết nối' : 'cần thiết lập / cập nhật'}`,
         )
         .join('\n');
       const { response } = await dialog.showMessageBox(win, {
         type: 'info',
         title: 'Agent Status — Thiết lập kết nối',
-        message: current.needsInstall
-          ? 'Kết nối với Claude Code và Codex'
-          : 'Kết nối đã được thiết lập',
+        message: current.needsInstall ? 'Kết nối với các agent' : 'Kết nối đã được thiết lập',
         detail:
           summary +
           '\n\n' +
           (current.needsInstall
-            ? 'Agent Status sẽ cài bộ ghi trạng thái và thêm hooks vào cấu hình Claude / Codex trên máy này. Cấu hình hiện có được sao lưu và giữ lại.\n\nSau khi cài, Codex cần bạn Trust hooks một lần và dùng phiên CLI mới.'
+            ? 'Agent Status sẽ cài bộ ghi trạng thái và thêm hooks vào cấu hình Claude / Codex / Antigravity trên máy này. Cấu hình hiện có được sao lưu và giữ lại.\n\nSau khi cài, Codex cần bạn Trust hooks một lần và dùng phiên CLI mới.'
             : nextSteps(backend.writerName)),
         buttons: current.needsInstall ? ['Cài đặt kết nối', 'Để sau'] : ['Đóng', 'Cài lại kết nối'],
         defaultId: 0,
@@ -71,7 +71,7 @@ export function createIntegrationSetup(
         message: 'Đã cài kết nối',
         detail:
           nextSteps(backend.writerName) +
-          '\n\nĐèn sẽ sáng khi nhận sự kiện từ CLI. Bạn có thể xem lại hướng dẫn ở menu khay hệ thống → Thiết lập kết nối.',
+          '\n\nĐèn sẽ sáng khi nhận sự kiện từ agent. Bạn có thể xem lại hướng dẫn ở menu khay hệ thống → Thiết lập kết nối.',
         buttons: ['Đã hiểu'],
       });
     } catch (error) {

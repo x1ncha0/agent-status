@@ -4,7 +4,8 @@ export interface Bounds {
   width: number;
   height: number;
 }
-const DEFAULT_SIZE = { width: 110, height: 55 };
+// Wide enough for three agents; saved sizes are kept.
+const DEFAULT_SIZE = { width: 165, height: 55 };
 export const MIN_SIZE = { width: 90, height: 45 };
 
 export function fitBounds(bounds: Bounds, work: Bounds): Bounds {

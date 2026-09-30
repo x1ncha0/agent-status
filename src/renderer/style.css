@@ -39,6 +39,12 @@ main {
   align-items: center;
   gap: calc(5px * var(--ui-scale, 1));
 }
+.agent > span:last-child {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .agent[hidden] {
   display: none;
 }

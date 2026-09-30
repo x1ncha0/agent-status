@@ -1,5 +1,5 @@
 type AgentView = {
-  agent: 'claude' | 'codex';
+  agent: 'claude' | 'codex' | 'antigravity';
   status: 'available' | 'working' | 'stuck';
   observed: boolean;
   reason: string;
@@ -23,16 +23,20 @@ function render(states: AgentView[]): void {
       working: 'Vàng: Đang suy nghĩ / làm việc',
       stuck: 'Đỏ: Cần bạn can thiệp',
     };
-    element.setAttribute('aria-label', `${state.agent}: ${labels[state.status]} — ${state.reason}`);
+    const name = element.lastElementChild!.textContent;
+    element.setAttribute('aria-label', `${name}: ${labels[state.status]} — ${state.reason}`);
     element.querySelector('.dot')!.className = `dot ${state.status}`;
   }
+  rescale();
 }
-const resizeObserver = new ResizeObserver((entries) => {
-  const { width, height } = entries[0].contentRect;
-  const scale = Math.max(1, Math.min(width / 110, height / 55));
+// Each visible agent needs about 55 DIP at scale 1; two agents fit the original 110 DIP window.
+function rescale(): void {
+  const { clientWidth: width, clientHeight: height } = document.documentElement;
+  const visible = Math.max(2, document.querySelectorAll('.agent:not([hidden])').length);
+  const scale = Math.max(1, Math.min(width / (55 * visible), height / 55));
   document.documentElement.style.setProperty('--ui-scale', String(scale));
-});
-resizeObserver.observe(document.documentElement);
+}
+new ResizeObserver(rescale).observe(document.documentElement);
 
 window.agentStatus.subscribe(render);
 void window.agentStatus.get().then(render);
