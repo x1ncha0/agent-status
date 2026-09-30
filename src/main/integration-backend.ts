@@ -14,6 +14,8 @@ export interface SetupPaths {
   integrationDir: string;
   claudeHome: string;
   codexHome: string;
+  /** Antigravity's ~/.gemini; its global hooks live in config/hooks.json. */
+  geminiHome: string;
 }
 export interface IntegrationBackend {
   check(): Promise<Installation>;

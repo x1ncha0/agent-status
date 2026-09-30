@@ -4,7 +4,12 @@ import { spawnSync } from 'node:child_process';
 import { mkdir, mkdtemp, readdir, readFile, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { createMacBackend, macHookCommand, MAC_WRITER } from '../main/integration-mac';
+import {
+  antigravityHooks,
+  createMacBackend,
+  macHookCommand,
+  MAC_WRITER,
+} from '../main/integration-mac';
 import { parseLstart } from '../monitor/process-owner';
 
 async function setup() {
@@ -15,6 +20,7 @@ async function setup() {
     integrationDir: path.resolve('integration'),
     claudeHome: path.join(root, '.claude'),
     codexHome: path.join(root, '.codex'),
+    geminiHome: path.join(root, '.gemini'),
   };
   return { root, paths, backend: createMacBackend(paths) };
 }
@@ -73,6 +79,64 @@ test('mac installer: fresh install, keeps other hooks, idempotent, backs up', as
 
   await backend.apply();
   assert.deepEqual(await read(settings), claude, 'Reinstalling does not duplicate handlers');
+  await assert.rejects(readdir(paths.geminiHome), /ENOENT/, 'No Antigravity, no ~/.gemini');
+});
+
+test('mac installer: Antigravity hooks keep other named hooks', async () => {
+  const { paths, backend } = await setup();
+  const config = path.join(paths.geminiHome, 'config');
+  await mkdir(config, { recursive: true });
+  const file = path.join(config, 'hooks.json');
+  const lint = { Stop: [{ command: 'echo lint' }] };
+  await writeFile(file, JSON.stringify({ lint }));
+  const before = await backend.check();
+  assert.deepEqual(before.agents[2], { agent: 'antigravity', configured: false });
+
+  await backend.apply();
+  const expected = antigravityHooks(macHookCommand('antigravity', paths.dataDir));
+  const hooks = await read(file);
+  assert.deepEqual(hooks, { lint, 'agent-status': expected });
+  assert.deepEqual(expected.Stop, [
+    {
+      type: 'command',
+      command: macHookCommand('antigravity', paths.dataDir) + ' Stop',
+      timeout: 3,
+    },
+  ]);
+  assert.deepEqual(expected.PostToolUse[0].matcher, '*');
+  assert.equal(Object.keys(expected).join(), 'PreInvocation,PostToolUse,Stop');
+  assert.equal((await readdir(config)).filter((f) => f.endsWith('.bak')).length, 1);
+  assert.deepEqual((await backend.check()).agents[2], { agent: 'antigravity', configured: true });
+  assert.equal((await backend.check()).needsInstall, false);
+  await backend.apply();
+  assert.deepEqual(await read(file), hooks, 'Reinstalling keeps one agent-status entry');
+});
+
+test('mac installer: Antigravity config dir is created and disabled hooks need setup', async () => {
+  const { paths, backend } = await setup();
+  await mkdir(paths.geminiHome);
+  await backend.apply();
+  const file = path.join(paths.geminiHome, 'config', 'hooks.json');
+  const hooks = await read(file);
+  assert.ok(hooks['agent-status']);
+  await writeFile(
+    file,
+    JSON.stringify({ 'agent-status': { ...hooks['agent-status'], enabled: false } }),
+  );
+  const check = await backend.check();
+  assert.deepEqual(check.agents[2], { agent: 'antigravity', configured: false });
+  assert.equal(check.needsInstall, true);
+});
+
+test('mac installer: malformed Antigravity hooks abort without writing', async () => {
+  const { paths, backend } = await setup();
+  const config = path.join(paths.geminiHome, 'config');
+  await mkdir(config, { recursive: true });
+  await writeFile(path.join(config, 'hooks.json'), '[]');
+  await assert.rejects(backend.check(), /hooks\.json/);
+  await assert.rejects(backend.apply(), /hooks\.json/);
+  await assert.rejects(readFile(path.join(paths.claudeHome, 'settings.json')), /ENOENT/);
+  await assert.rejects(readdir(paths.dataDir), /ENOENT/);
 });
 
 test('mac installer: hook command quotes paths with spaces', () => {
