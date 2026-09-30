@@ -122,7 +122,8 @@ export class FileMonitor implements Monitor {
   /** Event files written by hooks, plus every file to delete once they are applied. */
   private async readQueue(): Promise<{ events: HookEvent[]; files: string[] }> {
     const names = (await readdir(this.directory))
-      .filter((name) => /^[a-f0-9-]+\.json$/.test(name))
+      // macOS hooks name files with NSUUID, which is uppercase.
+      .filter((name) => /^[a-f0-9-]+\.json$/i.test(name))
       .slice(0, 1000);
     const events: HookEvent[] = [];
     const files: string[] = [];

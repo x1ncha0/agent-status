@@ -1,5 +1,9 @@
 # Agent Status — Release notes
 
+## 1.2.1 — 30/09/2026
+
+- Sửa lỗi trên macOS cửa sổ không bao giờ hiện và menu khay luôn báo "không có agent đang chạy" dù Claude hoặc Codex đang chạy: app bỏ qua file sự kiện do hook ghi vì tên file là UUID chữ hoa. App giờ đọc được cả tên chữ hoa lẫn chữ thường, nên hook đã cài không cần cài lại; hook mới ghi tên chữ thường.
+
 ## 1.2.0 — 30/09/2026
 
 - Có bản macOS (Apple Silicon và Intel, macOS 12 trở lên): icon trên menu bar, cửa sổ nổi trên mọi Space kể cả app toàn màn hình, không có icon Dock. Thiết lập kết nối cài hook cho Claude Code và Codex bằng bộ ghi trạng thái dùng `osascript` có sẵn của macOS, không cần Node hay Python.

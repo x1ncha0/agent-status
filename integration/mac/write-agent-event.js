@@ -95,7 +95,7 @@ function run(argv) {
     const files = $.NSFileManager.defaultManager;
     const dir = dataDir + '/events/' + agent;
     files.createDirectoryAtPathWithIntermediateDirectoriesAttributesError(dir, true, $(), $());
-    const name = $.NSUUID.UUID.UUIDString.js;
+    const name = $.NSUUID.UUID.UUIDString.js.toLowerCase();
     const temporary = dir + '/' + name + '.tmp';
     $(JSON.stringify(record)).writeToFileAtomicallyEncodingError(
       temporary,
