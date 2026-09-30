@@ -1,9 +1,11 @@
-import { parseLstart } from '../monitor/process-owner';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readdir, readFile, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { mkdir, mkdtemp, readdir, readFile, symlink, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createMacBackend, macHookCommand, MAC_WRITER } from '../main/integration-mac';
+import { parseLstart } from '../monitor/process-owner';
 
 async function setup() {
   await mkdir('.test-data', { recursive: true });
@@ -125,9 +127,6 @@ test('mac installer: malformed settings abort without touching any file', async 
   await assert.rejects(readFile(path.join(paths.codexHome, 'hooks.json')), /ENOENT/);
 });
 
-import { spawnSync } from 'node:child_process';
-import { symlink } from 'node:fs/promises';
-
 const macOnly = { skip: process.platform !== 'darwin' && 'needs macOS osascript' };
 const writer = path.resolve('integration/mac', MAC_WRITER);
 const payload = (extra: Record<string, unknown> = {}) =>
@@ -194,12 +193,15 @@ test('JXA writer ignores incomplete payloads and unknown agents', macOnly, async
 });
 
 test('JXA writer finds the owning CLI process and its start time', macOnly, async () => {
-  const { root, paths } = await setup();
-  const fakeClaude = path.join(root, 'claude');
-  await symlink('/bin/sh', fakeClaude);
+  const { paths } = await setup();
+  // bash keeps the symlink name as argv[0]; /bin/sh on macOS is a shim that re-execs a shell.
+  // The owner's own path has no space, as when claude is launched from PATH.
+  const bin = await mkdtemp(path.join(tmpdir(), 'agent-status-owner-'));
+  const fakeClaude = path.join(bin, 'claude');
+  await symlink('/bin/bash', fakeClaude);
   const quote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
-  // The trailing `; true` stops sh from exec-ing osascript in place of itself.
-  const script = `LC_ALL=C /bin/ps -o lstart= -p $; /usr/bin/osascript -l JavaScript ${quote(writer)} claude ${quote(paths.dataDir)}; echo "PID=$$"; true`;
+  // The trailing `; true` stops bash from exec-ing osascript in place of itself.
+  const script = `LC_ALL=C /bin/ps -o lstart= -p $$; /usr/bin/osascript -l JavaScript ${quote(writer)} claude ${quote(paths.dataDir)}; echo "PID=$$"; true`;
   const result = spawnSync(fakeClaude, ['-c', script], { input: payload(), encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   const pid = Number(/PID=(\d+)/.exec(result.stdout)?.[1]);
