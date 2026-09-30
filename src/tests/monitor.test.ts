@@ -592,6 +592,17 @@ test('a hook that misses its owner keeps the session tied to the known owner', a
   assert.equal(monitor.snapshot().observed, false, 'Exit is detected despite the ownerless event');
 });
 
+test('event files named with uppercase UUIDs (macOS NSUUID) are read', async () => {
+  await mkdir('.test-data', { recursive: true });
+  const directory = await mkdtemp(path.resolve('.test-data/uppercase-'));
+  const monitor = new FileMonitor(directory, 'claude', classifyClaude, async () => true);
+  const name = 'E621E1F8-C36C-495A-93FC-0C247A3E6E5F.json';
+  await writeFile(path.join(directory, name), JSON.stringify(event('UserPromptSubmit')));
+  await monitor.poll();
+  assert.equal(monitor.snapshot().observed, true);
+  assert.ok(!(await readdir(directory)).includes(name), 'Applied event files are removed');
+});
+
 test('ownerless sessions expire after inactivity, longer while busy', () => {
   const now = Date.now();
   const store = new StatusStore('claude', classifyClaude);

@@ -160,6 +160,7 @@ test('JXA writer records only allowed fields, prints nothing, exits 0', macOnly,
     [],
   );
   assert.equal(files.length, 1);
+  assert.match(files[0], /^[a-f0-9-]+\.json$/, 'Lowercase UUID file name');
   const text = await readFile(path.join(dir, files[0]), 'utf8');
   assert.doesNotMatch(text, /SECRET|xxxx/);
   const record = JSON.parse(text);
