@@ -1,4 +1,4 @@
-import type { AgentState } from '../monitor/status';
+import { AGENT_NAMES, type AgentState } from '../monitor/status';
 
 const LABELS = {
   available: 'Sẵn sàng',
@@ -10,8 +10,9 @@ const MAX_LENGTH = 127;
 
 export function trayTooltip(states: AgentState[]): string {
   const lines = states.flatMap((state) => {
-    if (state.error) return [`${state.agent}: lỗi — ${state.error}`];
-    return state.observed ? [`${state.agent}: ${LABELS[state.status]}`] : [];
+    const name = AGENT_NAMES[state.agent];
+    if (state.error) return [`${name}: lỗi — ${state.error}`];
+    return state.observed ? [`${name}: ${LABELS[state.status]}`] : [];
   });
   return (lines.join('\n') || 'Agent Status: Không có agent đang chạy').slice(0, MAX_LENGTH);
 }

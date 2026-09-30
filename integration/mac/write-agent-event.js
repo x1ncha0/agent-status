@@ -1,8 +1,11 @@
 // Agent Status hook writer for macOS. Run by: /usr/bin/osascript -l JavaScript <this> <agent> <dataDir>
-// Monitoring must never block the agent: every error is swallowed, nothing is printed, exit 0.
+// Run by Antigravity as: ... antigravity <dataDir> <PreInvocation|Stop>
+// Monitoring must never block the agent: every error is swallowed and the exit code is 0.
+// Claude and Codex get no output; Antigravity requires JSON, so it always gets {}.
 ObjC.import('Foundation');
 
 const FIELDS = ['tool_name', 'tool_use_id', 'notification_type', 'source'];
+const ANTIGRAVITY_EVENTS = ['PreInvocation', 'Stop'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // Same rules as parseLstart in src/monitor/process-owner.ts; both sides must agree exactly.
@@ -44,6 +47,9 @@ function processTable() {
 }
 
 function matches(agent, args) {
+  // The IDE's server path contains a space ("Antigravity IDE.app"), so match the whole line.
+  if (agent === 'antigravity')
+    return /\/language_server\w*(\s|$)/.test(args) && /antigravity/i.test(args);
   const name = args.split(' ')[0].split('/').pop();
   if (name === agent) return true;
   // npm Claude runs under node; the native installer runs a versioned file via a symlink.
@@ -67,22 +73,46 @@ function findOwner(agent) {
   return undefined;
 }
 
+function cliRecord(agent, input) {
+  if (!input || !input.session_id || !input.hook_event_name) return undefined;
+  const record = {
+    agent,
+    session_id: String(input.session_id),
+    hook_event_name: String(input.hook_event_name),
+    timestamp: Date.now(),
+  };
+  for (const field of FIELDS)
+    if (input[field] !== undefined && input[field] !== null) record[field] = String(input[field]);
+  return record;
+}
+
+// The payload has no event name; the hook command passes it. Workspace and transcript paths are dropped.
+function antigravityRecord(input, event) {
+  if (!input || !input.conversationId || !ANTIGRAVITY_EVENTS.includes(event)) return undefined;
+  const record = {
+    agent: 'antigravity',
+    session_id: String(input.conversationId),
+    hook_event_name: event,
+    timestamp: Date.now(),
+  };
+  if (event === 'Stop' && input.terminationReason) record.source = String(input.terminationReason);
+  return record;
+}
+
 // eslint-disable-next-line no-unused-vars -- osascript calls run(argv).
 function run(argv) {
   try {
     const agent = argv[0];
     const dataDir = argv[1];
-    if ((agent !== 'claude' && agent !== 'codex') || !dataDir) return;
+    if (agent === 'antigravity')
+      $.NSFileHandle.fileHandleWithStandardOutput.writeData(
+        $('{}').dataUsingEncoding($.NSUTF8StringEncoding),
+      );
+    if (!['claude', 'codex', 'antigravity'].includes(agent) || !dataDir) return;
     const input = JSON.parse(utf8($.NSFileHandle.fileHandleWithStandardInput.readDataToEndOfFile));
-    if (!input || !input.session_id || !input.hook_event_name) return;
-    const record = {
-      agent,
-      session_id: String(input.session_id),
-      hook_event_name: String(input.hook_event_name),
-      timestamp: Date.now(),
-    };
-    for (const field of FIELDS)
-      if (input[field] !== undefined && input[field] !== null) record[field] = String(input[field]);
+    const record =
+      agent === 'antigravity' ? antigravityRecord(input, argv[2]) : cliRecord(agent, input);
+    if (!record) return;
     try {
       const owner = findOwner(agent);
       if (owner) {

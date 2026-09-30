@@ -1,13 +1,21 @@
 import { mkdir, readdir, readFile, stat, unlink, writeFile, rename } from 'node:fs/promises';
 import path from 'node:path';
-import { StatusStore, type Agent, type Classifier, type HookEvent, type Monitor } from './status';
+import {
+  AGENT_NAMES,
+  StatusStore,
+  type Agent,
+  type Classifier,
+  type HookEvent,
+  type Monitor,
+} from './status';
 import { createOwnerProbe, type OwnerAlive } from './process-owner';
 
 export function parseEvent(value: unknown): HookEvent | undefined {
   if (!value || typeof value !== 'object') return;
   const e = value as Record<string, unknown>;
   if (
-    (e.agent !== 'claude' && e.agent !== 'codex') ||
+    typeof e.agent !== 'string' ||
+    !Object.hasOwn(AGENT_NAMES, e.agent) ||
     typeof e.session_id !== 'string' ||
     !e.session_id ||
     e.session_id.length > 256 ||
@@ -19,7 +27,7 @@ export function parseEvent(value: unknown): HookEvent | undefined {
   )
     return;
   const result: HookEvent = {
-    agent: e.agent,
+    agent: e.agent as Agent,
     session_id: e.session_id,
     hook_event_name: e.hook_event_name,
     timestamp: e.timestamp,

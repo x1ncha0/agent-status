@@ -5,7 +5,7 @@
 [![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078d4?logo=windows&logoColor=white)](#giới-hạn)
 [![macOS](<https://img.shields.io/badge/platform-macOS%2012%2B%20(Apple%20Silicon%20%2F%20Intel)-000000?logo=apple&logoColor=white>)](#giới-hạn)
 
-Agent Status là tiện ích cho Windows và macOS hiển thị trạng thái **Claude Code** và **Codex CLI** trong một cửa sổ nhỏ, luôn nổi và không chiếm Taskbar.
+Agent Status là tiện ích cho Windows và macOS hiển thị trạng thái **Claude Code**, **Codex CLI** và **Antigravity** trong một cửa sổ nhỏ, luôn nổi và không chiếm Taskbar.
 
 Cửa sổ có thể kéo và thay đổi kích thước (tối thiểu `90 × 45` DIP). Kích thước và vị trí được lưu lại. Menu khay hệ thống có các tùy chọn Show/Hide, cài đặt integration, kiểm tra cập nhật, Start with Windows / Start at login và Exit.
 
@@ -16,6 +16,8 @@ Cửa sổ có thể kéo và thay đổi kích thước (tối thiểu `90 × 4
 | Xanh         | Sẵn sàng hoặc đã hoàn thành                 |
 | Vàng         | Agent đang làm việc                         |
 | Đỏ nhấp nháy | Đang chờ bạn cấp quyền hoặc trả lời câu hỏi |
+
+Antigravity chỉ có đèn xanh và vàng: Antigravity không báo lúc đang chờ bạn duyệt nên app không biết khi nào cần chuyển đỏ.
 
 Mỗi khi Claude hoặc Codex chuyển sang đỏ, app phát một tiếng báo hệ thống, kể cả khi cửa sổ đang ẩn. Âm thanh không lặp lại trong lúc agent vẫn đang chờ.
 
@@ -47,6 +49,8 @@ Icon nằm trên menu bar, không có icon Dock. Dữ liệu ở `~/Library/Appl
 
 Trong app, mở menu khay hệ thống và chọn **Thiết lập kết nối...**. Installer sẽ cập nhật hook cho Claude Code và Codex, đồng thời giữ lại các hook khác.
 
+Với Antigravity, installer thêm mục `agent-status` vào `~/.gemini/config/hooks.json` (Windows: `%USERPROFILE%\.gemini\config\hooks.json`), áp dụng cho mọi workspace của Antigravity 2.0 và Antigravity IDE. Mục này chỉ được cài khi máy đã từng chạy Antigravity. Sau khi cài, mở cuộc hội thoại mới trong Antigravity.
+
 Sau khi cập nhật Agent Status, hãy cập nhật integration và mở phiên CLI mới để hook mới được nhận diện. Khi di chuyển file `.exe`, tắt rồi bật lại **Start with Windows**.
 
 ## Cập nhật app
@@ -61,6 +65,7 @@ Trên macOS, app tải `.dmg` đúng chip vào Downloads và kiểm SHA256. Ch�
 
 ## Giới hạn
 
+- Antigravity: không có đèn đỏ; antigravity-cli chưa được kiểm chứng.
 - Hỗ trợ CLI chạy trực tiếp trên Windows và macOS với hook đã được cài và trust. WSL, remote/cloud và client Desktop/IDE chưa được kiểm chứng.
 - App không lưu prompt, arguments, tool output hoặc transcript; chỉ lưu metadata cần để hiển thị trạng thái.
 - Bản Windows và macOS chưa được code-sign / notarize.

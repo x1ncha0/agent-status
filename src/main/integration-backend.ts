@@ -14,6 +14,8 @@ export interface SetupPaths {
   integrationDir: string;
   claudeHome: string;
   codexHome: string;
+  /** Antigravity's ~/.gemini; its global hooks live in config/hooks.json. */
+  geminiHome: string;
 }
 export interface IntegrationBackend {
   check(): Promise<Installation>;
@@ -43,6 +45,8 @@ export function createWindowsBackend(paths: SetupPaths): IntegrationBackend {
         paths.claudeHome,
         '-CodexHome',
         paths.codexHome,
+        '-GeminiHome',
+        paths.geminiHome,
       ],
       { windowsHide: true, timeout: 20000, maxBuffer: 1024 * 1024 },
     );

@@ -9,6 +9,7 @@ import { trayTooltip } from './tray-tooltip';
 import { FileMonitor } from '../monitor/file-monitor';
 import { classifyClaude } from '../monitor/claude';
 import { classifyCodex } from '../monitor/codex';
+import { classifyAntigravity } from '../monitor/antigravity';
 import { createWindowsBackend, type SetupPaths } from './integration-backend';
 import { createIntegrationSetup } from './integration';
 import { createAttentionNotifier } from './attention';
@@ -24,6 +25,7 @@ else
     const monitors = [
       new FileMonitor(path.join(dataDir, 'events/claude'), 'claude', classifyClaude),
       new FileMonitor(path.join(dataDir, 'events/codex'), 'codex', classifyCodex),
+      new FileMonitor(path.join(dataDir, 'events/antigravity'), 'antigravity', classifyAntigravity),
     ];
     const win = createWindow(dataDir);
     const setupPaths: SetupPaths = {
@@ -37,6 +39,7 @@ else
         process.env.AGENT_STATUS_CODEX_HOME ||
         process.env.CODEX_HOME ||
         path.join(app.getPath('home'), '.codex'),
+      geminiHome: process.env.AGENT_STATUS_GEMINI_HOME || path.join(app.getPath('home'), '.gemini'),
     };
     const setup = createIntegrationSetup(
       win,

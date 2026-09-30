@@ -7,6 +7,7 @@ const root = path.resolve('.test-data', `smoke-${Date.now()}`);
 process.env.AGENT_STATUS_DATA_DIR = root;
 process.env.AGENT_STATUS_CLAUDE_HOME = path.join(root, 'claude');
 process.env.AGENT_STATUS_CODEX_HOME = path.join(root, 'codex');
+process.env.AGENT_STATUS_GEMINI_HOME = path.join(root, 'gemini');
 const setupDialogs = [];
 let attentionSounds = 0;
 shell.beep = () => attentionSounds++;
@@ -41,6 +42,9 @@ const visibleAgents = (win) =>
   );
 app.whenReady().then(async () => {
   try {
+    await fs.mkdir(path.join(process.env.AGENT_STATUS_GEMINI_HOME, 'antigravity'), {
+      recursive: true,
+    });
     await until(() => BrowserWindow.getAllWindows().length > 0);
     const win = BrowserWindow.getAllWindows()[0];
     let shown = false;
@@ -57,7 +61,7 @@ app.whenReady().then(async () => {
         return false;
       }
     });
-    assert.equal(setupDialogs[0].message, 'Kết nối với Claude Code và Codex');
+    assert.equal(setupDialogs[0].message, 'Kết nối với các agent');
     await assert.rejects(fs.access(path.join(root, 'claude/settings.json')));
     await assert.rejects(fs.access(path.join(root, 'codex/hooks.json')));
     const setup = require('../dist/main/integration.js').createIntegrationSetup(
@@ -68,6 +72,7 @@ app.whenReady().then(async () => {
         integrationDir: path.resolve('integration'),
         claudeHome: process.env.AGENT_STATUS_CLAUDE_HOME,
         codexHome: process.env.AGENT_STATUS_CODEX_HOME,
+        geminiHome: process.env.AGENT_STATUS_GEMINI_HOME,
       }),
     );
     await setup.checkOnStartup();
@@ -79,6 +84,8 @@ app.whenReady().then(async () => {
     assert.ok(setupDialogs[2].detail.includes('terminal mới'));
     await fs.access(path.join(root, 'claude/settings.json'));
     await fs.access(path.join(root, 'codex/hooks.json'));
+    await fs.access(path.join(root, 'gemini/config/hooks.json'));
+    assert.ok(setupDialogs[2].detail.includes('Antigravity'));
     await setup.checkOnStartup();
     assert.equal(setupDialogs.length, 3, 'Configured machines start without setup prompts');
     report.checks.push(
@@ -102,10 +109,10 @@ app.whenReady().then(async () => {
     report.checks.push(
       'Empty startup stays hidden; first active agent restores window; hollow dot is hidden and the single agent is centered',
     );
-    assert.deepEqual(win.getSize(), [110, 55]);
+    assert.deepEqual(win.getSize(), [165, 55]);
     assert.equal(win.isResizable(), true);
     assert.deepEqual(win.getMinimumSize(), [90, 45]);
-    report.checks.push('Window visible, default 110x55 DIP, resizable, minimum 90x45 DIP');
+    report.checks.push('Window visible, default 165x55 DIP, resizable, minimum 90x45 DIP');
     const prefs = win.webContents.getLastWebPreferences();
     assert.equal(prefs.contextIsolation, true);
     assert.equal(prefs.sandbox, true);
@@ -174,7 +181,7 @@ app.whenReady().then(async () => {
         JSON.stringify(JSON.parse(await fs.readFile(path.join(root, 'position.json'), 'utf8'))) ===
         JSON.stringify(resized),
     );
-    assert.ok(resized.width > 110 && resized.height > 55);
+    assert.ok(resized.width > 165 && resized.height > 55);
     const layout = await win.webContents.executeJavaScript(
       '({width: document.querySelector("main").offsetWidth, height: document.querySelector("main").offsetHeight, viewportWidth: innerWidth, viewportHeight: innerHeight})',
     );
@@ -348,6 +355,55 @@ app.whenReady().then(async () => {
     report.checks.push(
       'Both agents display; ending one of multiple sessions retains its agent; final session removes it; ending all hides window; new sessions restore it with saved bounds; manual Hide survives status updates and resets after all sessions close',
     );
+    for (const [hook, event, status] of [
+      ['PreInvocation', 'PreInvocation', 'working'],
+      ['Stop', 'Stop', 'available'],
+    ]) {
+      await new Promise((resolve, reject) => {
+        const { spawn } = require('node:child_process');
+        const child = spawn(
+          'powershell.exe',
+          [
+            '-NoProfile',
+            '-NonInteractive',
+            '-File',
+            path.resolve('integration/Write-AgentEvent.ps1'),
+            '-Agent',
+            'antigravity',
+            '-DataDir',
+            root,
+            '-HookEvent',
+            event,
+          ],
+          { windowsHide: true },
+        );
+        let stdout = '';
+        child.stdout.on('data', (chunk) => (stdout += chunk));
+        child.on('error', reject);
+        child.on('exit', (code) =>
+          code === 0 && stdout === '{}' ? resolve() : reject(new Error(`Hook ${code} ${stdout}`)),
+        );
+        child.stdin.end(JSON.stringify({ conversationId: 'smoke-conversation' }));
+      });
+      await until(() =>
+        win.webContents.executeJavaScript(
+          `document.querySelector('#antigravity .dot').className === 'dot ${status}'`,
+        ),
+      );
+      report.checks.push(`antigravity: ${hook} -> ${status}, PowerShell/file/IPC/DOM`);
+    }
+    // Antigravity has no SessionEnd, so this runs last.
+    await sendEvent('codex', 'UserPromptSubmit', 'three-agents');
+    await until(async () => (await visibleAgents(win)).join() === 'claude,codex,antigravity');
+    const labels = await win.webContents.executeJavaScript(
+      "[...document.querySelectorAll('.agent > span:last-child')].map(label => label.scrollWidth <= label.parentElement.clientWidth + 1)",
+    );
+    assert.ok(labels.every(Boolean), 'Three labels fit without overflowing their column');
+    await fs.writeFile(
+      path.join(root, 'three-agents.png'),
+      (await win.webContents.capturePage()).toPNG(),
+    );
+    report.checks.push('Three agents display together; labels fit; Antigravity hook prints {}');
   } catch (error) {
     report.errors.push(error.stack);
   } finally {

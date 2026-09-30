@@ -1,10 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import type { Agent } from '../monitor/status';
 import type { Installation, IntegrationBackend, SetupPaths } from './integration-backend';
 
 export const MAC_WRITER = 'write-agent-event.js';
+type CliAgent = Exclude<Agent, 'antigravity'>;
 const COMMON = [
   'SessionStart',
   'SessionEnd',
@@ -16,7 +18,7 @@ const COMMON = [
   'PostCompact',
   'Stop',
 ];
-const EVENTS: Record<Agent, string[]> = {
+const EVENTS: Record<CliAgent, string[]> = {
   claude: [
     ...COMMON,
     'PostToolUseFailure',
@@ -67,7 +69,7 @@ async function readSettings(file: string): Promise<Settings> {
 }
 
 /** Same merge rules as Install-Hooks.ps1: drop our handlers, keep every other hook, append ours. */
-function merge(settings: Settings, agent: Agent, command: string) {
+function merge(settings: Settings, agent: CliAgent, command: string) {
   const hooks = { ...(settings.hooks ?? {}) };
   let configured = true;
   for (const name of EVENTS[agent]) {
@@ -90,6 +92,31 @@ function merge(settings: Settings, agent: Agent, command: string) {
   return { settings: { ...settings, hooks }, configured };
 }
 
+const ANTIGRAVITY_KEY = 'agent-status';
+
+/**
+ * The entry Agent Status owns in Antigravity's hooks.json. Hooks block the agent loop, so only
+ * the model-call boundaries are hooked: PreInvocation already keeps tool runs yellow.
+ */
+export function antigravityHooks(command: (event: string) => string) {
+  const handler = (event: string) => ({ type: 'command', command: command(event), timeout: 3 });
+  return { PreInvocation: [handler('PreInvocation')], Stop: [handler('Stop')] };
+}
+
+/** Antigravity requires JSON output, so a missing or broken writer still prints {}. */
+export function macAntigravityCommand(dataDir: string, event: string): string {
+  return `${macHookCommand('antigravity', dataDir)} ${event} 2>/dev/null || printf '{}'`;
+}
+
+async function isDirectory(dir: string): Promise<boolean> {
+  try {
+    return (await stat(dir)).isDirectory();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
 const sha256 = async (file: string) =>
   createHash('sha256')
     .update(await readFile(file))
@@ -98,19 +125,37 @@ const sha256 = async (file: string) =>
 export function createMacBackend(paths: SetupPaths): IntegrationBackend {
   const bundled = path.join(paths.integrationDir, 'mac', MAC_WRITER);
   const installed = path.join(paths.dataDir, MAC_WRITER);
-  const targets: Record<Agent, string> = {
+  const targets: Record<CliAgent, string> = {
     claude: path.join(paths.claudeHome, 'settings.json'),
     codex: path.join(paths.codexHome, 'hooks.json'),
   };
   // Every file is parsed before anything is written, so a bad file aborts the whole install.
-  const plan = async () =>
-    Promise.all(
-      (['claude', 'codex'] as Agent[]).map(async (agent) => ({
-        agent,
-        target: targets[agent],
-        ...merge(await readSettings(targets[agent]), agent, macHookCommand(agent, paths.dataDir)),
-      })),
+  const plan = async () => {
+    const plans: { agent: Agent; target: string; settings: Settings; configured: boolean }[] =
+      await Promise.all(
+        (['claude', 'codex'] as CliAgent[]).map(async (agent) => ({
+          agent,
+          target: targets[agent],
+          ...merge(await readSettings(targets[agent]), agent, macHookCommand(agent, paths.dataDir)),
+        })),
+      );
+    // Only machines that have run Antigravity get its hooks; Gemini CLI also uses ~/.gemini.
+    const antigravityDirs = ['antigravity', 'antigravity-ide'].map((d) =>
+      path.join(paths.geminiHome, d),
     );
+    if ((await Promise.all(antigravityDirs.map(isDirectory))).some(Boolean)) {
+      const target = path.join(paths.geminiHome, 'config', 'hooks.json');
+      const hooks = await readSettings(target);
+      const expected = antigravityHooks((event) => macAntigravityCommand(paths.dataDir, event));
+      plans.push({
+        agent: 'antigravity',
+        target,
+        settings: { ...hooks, [ANTIGRAVITY_KEY]: expected },
+        configured: isDeepStrictEqual(hooks[ANTIGRAVITY_KEY], expected),
+      });
+    }
+    return plans;
+  };
   return {
     async check(): Promise<Installation> {
       const plans = await plan();
