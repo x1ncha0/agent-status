@@ -97,18 +97,18 @@
 
 **Files:**
 
-- Modify: `integration/Write-AgentEvent.ps1`, `integration/ProcessOwner.cs`, `integration/Install-Hooks.ps1`, `src/main/integration-backend.ts` (`-GeminiHome`), `src/tests/fixtures/HookOwner.cs` (tham số thứ 4 tuỳ chọn → `-Event`)
+- Modify: `integration/Write-AgentEvent.ps1`, `integration/ProcessOwner.cs`, `integration/Install-Hooks.ps1`, `src/main/integration-backend.ts` (`-GeminiHome`), `src/tests/fixtures/HookOwner.cs` (tham số thứ 4 tuỳ chọn → `-HookEvent`)
 - Test: `src/tests/monitor.test.ts` (windowsOnly)
 
 **Interfaces:**
 
-- Produces: `Write-AgentEvent.ps1 -Agent antigravity -DataDir <d> -Event <E>`; `Install-Hooks.ps1 -GeminiHome <path>`; `Check` JSON thêm `{agent:'antigravity', configured}` khi `GeminiHome` tồn tại.
+- Produces: `Write-AgentEvent.ps1 -Agent antigravity -DataDir <d> -HookEvent <E>`; `Install-Hooks.ps1 -GeminiHome <path>`; `Check` JSON thêm `{agent:'antigravity', configured}` khi `GeminiHome` tồn tại.
 
 - [ ] **Step 1: Tests (windowsOnly)**
   - `Windows writer and installer handle Antigravity`: tạo `gemini/` rỗng, `-Apply` với `-GeminiHome` → `gemini/config/hooks.json` có `agent-status` với ba event, command chứa `-Agent antigravity` và kết thúc bằng tên event; `-Check` → antigravity `configured:true`. Copy fixture thành `language_server_windows_x64.exe`, chạy với args `[writer, data, 'antigravity', 'PostToolUse']`, input `{conversationId:'conv-1'}` → stdout dòng cuối `{}`, record `session_id:'conv-1'`, `owner_pid` = pid fixture. Input `not json` → stdout `{}`, không file mới.
   - Test installer hiện có: không có `-GeminiHome` thư mục → agents chỉ claude/codex.
 - [ ] **Step 2:** Không chạy được trên mac; xác nhận test bị skip (`npm test` báo skipped) — sẽ chạy ở CI `windows-latest`.
-- [ ] **Step 3:** Implement: `ValidateSet('claude','codex','antigravity')`, param `[string]$Event`; nhánh antigravity `[Console]::Out.Write('{}')` đầu tiên, rồi map như mac. `ProcessOwner.Find`: `agent == "antigravity"` khớp khi `entry.Name` bắt đầu `language_server` (OrdinalIgnoreCase) và kết thúc `.exe`. Installer: plan thêm khi `Test-Path -PathType Container $GeminiHome`; configured bằng so sánh `ConvertTo-Json -Depth 20 -Compress` của khoá `agent-status` với mong đợi; ghi bằng `Add-Member -Force`. Backend TS truyền `-GeminiHome`.
+- [ ] **Step 3:** Implement: `ValidateSet('claude','codex','antigravity')`, param `[string]$HookEvent`; nhánh antigravity `[Console]::Out.Write('{}')` đầu tiên, rồi map như mac. `ProcessOwner.Find`: `agent == "antigravity"` khớp khi `entry.Name` bắt đầu `language_server` (OrdinalIgnoreCase) và kết thúc `.exe`. Installer: plan thêm khi `Test-Path -PathType Container $GeminiHome`; configured bằng so sánh `ConvertTo-Json -Depth 20 -Compress` của khoá `agent-status` với mong đợi; ghi bằng `Add-Member -Force`. Backend TS truyền `-GeminiHome`.
 - [ ] **Step 4:** `npm test` (mac) → PASS, test Windows skipped; `npm run check` sạch.
 - [ ] **Step 5:** Commit `feat: record and install Antigravity hooks on Windows`.
 

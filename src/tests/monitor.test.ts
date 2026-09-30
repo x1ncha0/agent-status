@@ -348,6 +348,9 @@ test('installer merges existing settings and is idempotent', windowsOnly, async 
     claude,
     '-CodexHome',
     codex,
+    // Never touch the real ~/.gemini; absent means Antigravity is skipped.
+    '-GeminiHome',
+    path.join(directory, 'gemini'),
   ];
   const preview = spawnSync('powershell.exe', args, { encoding: 'utf8', windowsHide: true });
   assert.equal(preview.status, 0, preview.stderr);
@@ -421,6 +424,8 @@ test(
       path.join(directory, 'claude'),
       '-CodexHome',
       path.join(directory, 'codex'),
+      '-GeminiHome',
+      path.join(directory, 'gemini'),
     ];
     const installed = spawnSync('powershell.exe', [...installArgs, '-Apply'], {
       encoding: 'utf8',
@@ -489,6 +494,110 @@ test(
   },
 );
 
+test('Windows writer and installer handle Antigravity', windowsOnly, async () => {
+  await mkdir('.test-data', { recursive: true });
+  const directory = await mkdtemp(path.resolve('.test-data/antigravity-'));
+  const data = path.join(directory, 'data');
+  const gemini = path.join(directory, 'gemini');
+  await mkdir(path.join(gemini, 'config'), { recursive: true });
+  const hooksFile = path.join(gemini, 'config', 'hooks.json');
+  await writeFile(hooksFile, JSON.stringify({ lint: { Stop: [{ command: 'echo lint' }] } }));
+  const args = [
+    '-NoProfile',
+    '-NonInteractive',
+    '-File',
+    path.resolve('integration/Install-Hooks.ps1'),
+    '-DataDir',
+    data,
+    '-ClaudeHome',
+    path.join(directory, 'claude'),
+    '-CodexHome',
+    path.join(directory, 'codex'),
+    '-GeminiHome',
+    gemini,
+  ];
+  const run = (mode: string) => {
+    const result = spawnSync('powershell.exe', [...args, mode], {
+      encoding: 'utf8',
+      windowsHide: true,
+    });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout;
+  };
+  const antigravity = () =>
+    JSON.parse(run('-Check')).agents.find((a: { agent: string }) => a.agent === 'antigravity');
+  assert.deepEqual(antigravity(), { agent: 'antigravity', configured: false });
+  run('-Apply');
+  run('-Apply');
+  assert.deepEqual(antigravity(), { agent: 'antigravity', configured: true });
+  const hooks = JSON.parse(await readFile(hooksFile, 'utf8'));
+  assert.deepEqual(hooks.lint, { Stop: [{ command: 'echo lint' }] });
+  const entry = hooks['agent-status'];
+  assert.deepEqual(Object.keys(entry), ['PreInvocation', 'PostToolUse', 'Stop']);
+  assert.equal(entry.PostToolUse[0].matcher, '*');
+  for (const [name, handler] of [
+    ['PreInvocation', entry.PreInvocation[0]],
+    ['PostToolUse', entry.PostToolUse[0].hooks[0]],
+    ['Stop', entry.Stop[0]],
+  ]) {
+    assert.equal(handler.timeout, 3);
+    assert.match(handler.command, /-Agent antigravity /);
+    assert.ok(handler.command.endsWith(` -HookEvent ${name}`), handler.command);
+  }
+  await writeFile(hooksFile, JSON.stringify({ 'agent-status': { ...entry, enabled: false } }));
+  assert.deepEqual(antigravity(), { agent: 'antigravity', configured: false });
+
+  const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
+  const server = path.join(directory, 'language_server_windows_x64.exe');
+  const compiled = spawnSync(
+    'powershell.exe',
+    [
+      '-NoProfile',
+      '-NonInteractive',
+      '-Command',
+      `Add-Type -Path ${quote(path.resolve('src/tests/fixtures/HookOwner.cs'))} -OutputAssembly ${quote(server)} -OutputType ConsoleApplication -ErrorAction Stop`,
+    ],
+    { encoding: 'utf8', windowsHide: true },
+  );
+  assert.equal(compiled.status, 0, compiled.stderr);
+  const writer = path.join(data, 'Write-AgentEvent.ps1');
+  const eventDir = path.join(data, 'events', 'antigravity');
+  const hook = (input: string, event: string) =>
+    spawnSync(server, [writer, data, 'antigravity', event], {
+      input,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 3000,
+    });
+  const result = hook(
+    JSON.stringify({ conversationId: 'conv-1', workspacePaths: ['C:\\SECRET'] }),
+    'PostToolUse',
+  );
+  assert.equal(result.status, 0, result.error?.message || result.stderr);
+  const [owner, output] = result.stdout.split(/\r?\n/);
+  assert.equal(output, '{}');
+  const [pid, started] = owner.split(':').map(Number);
+  const files = await readdir(eventDir);
+  assert.equal(files.length, 1);
+  const text = await readFile(path.join(eventDir, files[0]), 'utf8');
+  assert.ok(!text.includes('SECRET'));
+  const record = JSON.parse(text);
+  assert.equal(record.session_id, 'conv-1');
+  assert.equal(record.hook_event_name, 'PostToolUse');
+  assert.equal(record.owner_pid, pid);
+  assert.equal(record.owner_started_at, started);
+  for (const [input, event] of [
+    ['not json', 'Stop'],
+    ['{}', 'Stop'],
+    [JSON.stringify({ conversationId: 'conv-1' }), 'PreToolUse'],
+  ]) {
+    const bad = hook(input, event);
+    assert.equal(bad.status, 0, bad.stderr);
+    assert.equal(bad.stdout.split(/\r?\n/)[1], '{}', `${input} ${event}`);
+  }
+  assert.equal((await readdir(eventDir)).length, 1, 'Bad input records nothing');
+});
+
 test(
   'installer migrates console-hiding hooks without duplicates or changing other hooks/trust',
   windowsOnly,
@@ -509,6 +618,8 @@ test(
       claude,
       '-CodexHome',
       codex,
+      '-GeminiHome',
+      path.join(directory, 'gemini'),
     ];
     const run = (mode: string) => {
       const result = spawnSync('powershell.exe', [...args, mode], {

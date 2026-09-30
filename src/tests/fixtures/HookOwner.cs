@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 
-// Run the real hook under an executable named claude.exe or codex.exe, with
+// Run the real hook under an executable named claude.exe, codex.exe or language_server*.exe, with
 // another PowerShell between them, to verify ancestry rather than the hook PID.
 public static class HookOwner
 {
@@ -15,7 +15,8 @@ public static class HookOwner
         }
         var info = new ProcessStartInfo("powershell.exe",
             "-NoProfile -NonInteractive -File \"" + args[0] +
-            "\" -Agent " + args[2] + " -DataDir \"" + args[1] + "\"");
+            "\" -Agent " + args[2] + " -DataDir \"" + args[1] + "\"" +
+            (args.Length > 3 ? " -HookEvent " + args[3] : ""));
         info.UseShellExecute = false;
         info.CreateNoWindow = true;
         info.RedirectStandardInput = true;

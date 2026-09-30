@@ -55,7 +55,7 @@ Installer sở hữu đúng một khoá `"agent-status"`; mọi khoá khác gi�
 `<cmd>`:
 
 - macOS: `/usr/bin/osascript -l JavaScript "<dataDir>/write-agent-event.js" antigravity "<dataDir>"`
-- Windows: `powershell.exe -NoProfile -NonInteractive -File "<dataDir>\Write-AgentEvent.ps1" -Agent antigravity -DataDir "<dataDir>" -Event`
+- Windows: `powershell.exe -NoProfile -NonInteractive -File "<dataDir>\Write-AgentEvent.ps1" -Agent antigravity -DataDir "<dataDir>" -HookEvent`
 
 `configured` = khoá `"agent-status"` tồn tại và bằng đúng (deep-equal) cấu hình mong đợi. `enabled: false` do người dùng tự đặt được coi là chưa cấu hình → cài lại sẽ bật lại.
 
@@ -63,7 +63,7 @@ Installer sở hữu đúng một khoá `"agent-status"`; mọi khoá khác gi�
 
 ### Writer
 
-Cả hai writer nhận thêm tham số tên event khi `agent = antigravity` (mac: `argv[2]`; Windows: `-Event`):
+Cả hai writer nhận thêm tham số tên event khi `agent = antigravity` (mac: `argv[2]`; Windows: `-HookEvent`):
 
 1. Đọc stdin JSON. Thiếu `conversationId` hoặc tên event không thuộc `PreInvocation|PostToolUse|Stop` → bỏ qua.
 2. Record: `agent: "antigravity"`, `session_id: conversationId`, `hook_event_name: <event>`, `timestamp`. Với `Stop`, `terminationReason` được lưu vào field `source` sẵn có (không đổi schema file event). Không lưu `workspacePaths`, `transcriptPath` hay nội dung nào khác.

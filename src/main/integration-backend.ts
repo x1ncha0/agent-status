@@ -45,6 +45,8 @@ export function createWindowsBackend(paths: SetupPaths): IntegrationBackend {
         paths.claudeHome,
         '-CodexHome',
         paths.codexHome,
+        '-GeminiHome',
+        paths.geminiHome,
       ],
       { windowsHide: true, timeout: 20000, maxBuffer: 1024 * 1024 },
     );

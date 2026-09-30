@@ -1,19 +1,36 @@
 ﻿param(
-    [Parameter(Mandatory=$true)][ValidateSet('claude','codex')][string]$Agent,
-    [string]$DataDir = "$env:LOCALAPPDATA\AgentStatus"
+    [Parameter(Mandatory=$true)][ValidateSet('claude','codex','antigravity')][string]$Agent,
+    [string]$DataDir = "$env:LOCALAPPDATA\AgentStatus",
+    # Antigravity payloads carry no event name; its hook command passes one.
+    [string]$HookEvent = ''
 )
 $ErrorActionPreference = 'Stop'
+# Antigravity requires JSON on stdout; {} leaves its behavior unchanged. Claude/Codex get nothing.
+if ($Agent -eq 'antigravity') { [Console]::Out.Write('{}') }
 try {
     $eventData = [Console]::In.ReadToEnd() | ConvertFrom-Json
-    if (-not $eventData.session_id -or -not $eventData.hook_event_name) { exit 0 }
-    $record = @{
-        agent = $Agent
-        session_id = [string]$eventData.session_id
-        hook_event_name = [string]$eventData.hook_event_name
-        timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
-    }
-    foreach ($field in @('tool_name','tool_use_id','notification_type','source')) {
-        if ($null -ne $eventData.$field) { $record[$field] = [string]$eventData.$field }
+    $timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+    if ($Agent -eq 'antigravity') {
+        if (-not $eventData.conversationId -or @('PreInvocation','PostToolUse','Stop') -cnotcontains $HookEvent) { exit 0 }
+        # Workspace and transcript paths are not recorded.
+        $record = @{
+            agent = $Agent
+            session_id = [string]$eventData.conversationId
+            hook_event_name = $HookEvent
+            timestamp = $timestamp
+        }
+        if ($HookEvent -eq 'Stop' -and $eventData.terminationReason) { $record.source = [string]$eventData.terminationReason }
+    } else {
+        if (-not $eventData.session_id -or -not $eventData.hook_event_name) { exit 0 }
+        $record = @{
+            agent = $Agent
+            session_id = [string]$eventData.session_id
+            hook_event_name = [string]$eventData.hook_event_name
+            timestamp = $timestamp
+        }
+        foreach ($field in @('tool_name','tool_use_id','notification_type','source')) {
+            if ($null -ne $eventData.$field) { $record[$field] = [string]$eventData.$field }
+        }
     }
     # A native process snapshot avoids repeated WMI queries on every hook.
     # Load bytes so a running hook does not lock the DLL during an update.

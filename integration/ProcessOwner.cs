@@ -65,8 +65,11 @@ namespace AgentStatus
                         if (!String.Equals(process.ProcessName + ".exe", entry.Name,
                             StringComparison.OrdinalIgnoreCase)) return null;
                     }
-                    bool matches = String.Equals(entry.Name, agent + ".exe",
-                        StringComparison.OrdinalIgnoreCase);
+                    // Antigravity hooks run under its language server, e.g. language_server_windows_x64.exe.
+                    bool matches = agent == "antigravity"
+                        ? entry.Name.StartsWith("language_server", StringComparison.OrdinalIgnoreCase) &&
+                            entry.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                        : String.Equals(entry.Name, agent + ".exe", StringComparison.OrdinalIgnoreCase);
                     if (!matches && agent == "claude" && String.Equals(entry.Name,
                         "node.exe", StringComparison.OrdinalIgnoreCase))
                     {
