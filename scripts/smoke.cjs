@@ -42,7 +42,9 @@ const visibleAgents = (win) =>
   );
 app.whenReady().then(async () => {
   try {
-    await fs.mkdir(process.env.AGENT_STATUS_GEMINI_HOME, { recursive: true });
+    await fs.mkdir(path.join(process.env.AGENT_STATUS_GEMINI_HOME, 'antigravity'), {
+      recursive: true,
+    });
     await until(() => BrowserWindow.getAllWindows().length > 0);
     const win = BrowserWindow.getAllWindows()[0];
     let shown = false;
@@ -355,7 +357,6 @@ app.whenReady().then(async () => {
     );
     for (const [hook, event, status] of [
       ['PreInvocation', 'PreInvocation', 'working'],
-      ['PostToolUse', 'PostToolUse', 'working'],
       ['Stop', 'Stop', 'available'],
     ]) {
       await new Promise((resolve, reject) => {

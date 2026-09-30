@@ -1,11 +1,11 @@
 // Agent Status hook writer for macOS. Run by: /usr/bin/osascript -l JavaScript <this> <agent> <dataDir>
-// Run by Antigravity as: ... antigravity <dataDir> <PreInvocation|PostToolUse|Stop>
+// Run by Antigravity as: ... antigravity <dataDir> <PreInvocation|Stop>
 // Monitoring must never block the agent: every error is swallowed and the exit code is 0.
 // Claude and Codex get no output; Antigravity requires JSON, so it always gets {}.
 ObjC.import('Foundation');
 
 const FIELDS = ['tool_name', 'tool_use_id', 'notification_type', 'source'];
-const ANTIGRAVITY_EVENTS = ['PreInvocation', 'PostToolUse', 'Stop'];
+const ANTIGRAVITY_EVENTS = ['PreInvocation', 'Stop'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // Same rules as parseLstart in src/monitor/process-owner.ts; both sides must agree exactly.

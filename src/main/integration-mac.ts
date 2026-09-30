@@ -94,21 +94,20 @@ function merge(settings: Settings, agent: CliAgent, command: string) {
 
 const ANTIGRAVITY_KEY = 'agent-status';
 
-/** The entry Agent Status owns in Antigravity's hooks.json; the event name is the last argument. */
-export function antigravityHooks(command: string) {
-  const handler = (event: string) => ({
-    type: 'command',
-    command: `${command} ${event}`,
-    timeout: 3,
-  });
-  return {
-    PreInvocation: [handler('PreInvocation')],
-    PostToolUse: [{ matcher: '*', hooks: [handler('PostToolUse')] }],
-    Stop: [handler('Stop')],
-  };
+/**
+ * The entry Agent Status owns in Antigravity's hooks.json. Hooks block the agent loop, so only
+ * the model-call boundaries are hooked: PreInvocation already keeps tool runs yellow.
+ */
+export function antigravityHooks(command: (event: string) => string) {
+  const handler = (event: string) => ({ type: 'command', command: command(event), timeout: 3 });
+  return { PreInvocation: [handler('PreInvocation')], Stop: [handler('Stop')] };
 }
 
-// Only machines that have run Antigravity get its hooks.
+/** Antigravity requires JSON output, so a missing or broken writer still prints {}. */
+export function macAntigravityCommand(dataDir: string, event: string): string {
+  return `${macHookCommand('antigravity', dataDir)} ${event} 2>/dev/null || printf '{}'`;
+}
+
 async function isDirectory(dir: string): Promise<boolean> {
   try {
     return (await stat(dir)).isDirectory();
@@ -140,10 +139,14 @@ export function createMacBackend(paths: SetupPaths): IntegrationBackend {
           ...merge(await readSettings(targets[agent]), agent, macHookCommand(agent, paths.dataDir)),
         })),
       );
-    if (await isDirectory(paths.geminiHome)) {
+    // Only machines that have run Antigravity get its hooks; Gemini CLI also uses ~/.gemini.
+    const antigravityDirs = ['antigravity', 'antigravity-ide'].map((d) =>
+      path.join(paths.geminiHome, d),
+    );
+    if ((await Promise.all(antigravityDirs.map(isDirectory))).some(Boolean)) {
       const target = path.join(paths.geminiHome, 'config', 'hooks.json');
       const hooks = await readSettings(target);
-      const expected = antigravityHooks(macHookCommand('antigravity', paths.dataDir));
+      const expected = antigravityHooks((event) => macAntigravityCommand(paths.dataDir, event));
       plans.push({
         agent: 'antigravity',
         target,

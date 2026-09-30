@@ -3,9 +3,7 @@ import type { Classifier } from './status';
 export const classifyAntigravity: Classifier = (event) => {
   switch (event.hook_event_name) {
     case 'PreInvocation':
-      return { status: 'working', reason: 'Đang suy nghĩ' };
-    case 'PostToolUse':
-      return { status: 'working', reason: 'Đang chạy tool' };
+      return { status: 'working', reason: 'Đang suy nghĩ / làm việc' };
     case 'Stop':
       return event.source === 'error'
         ? { status: 'available', reason: 'Đã dừng do lỗi' }

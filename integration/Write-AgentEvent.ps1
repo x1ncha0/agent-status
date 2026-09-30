@@ -11,7 +11,7 @@ try {
     $eventData = [Console]::In.ReadToEnd() | ConvertFrom-Json
     $timestamp = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
     if ($Agent -eq 'antigravity') {
-        if (-not $eventData.conversationId -or @('PreInvocation','PostToolUse','Stop') -cnotcontains $HookEvent) { exit 0 }
+        if (-not $eventData.conversationId -or @('PreInvocation','Stop') -cnotcontains $HookEvent) { exit 0 }
         # Workspace and transcript paths are not recorded.
         $record = @{
             agent = $Agent

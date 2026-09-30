@@ -54,16 +54,23 @@ foreach ($agent in @('claude','codex')) {
     $agents += @{ agent = $agent; configured = ($configured -and -not $hasLegacy) }
     $plans += @{ Target = $target; Content = ($settings | ConvertTo-Json -Depth 100) }
 }
-# Antigravity: one named entry in the global hooks.json, only on machines that have run it.
-if (Test-Path -LiteralPath $GeminiHome -PathType Container) {
+# Antigravity: one named entry in the global hooks.json, only on machines that have run it
+# (Gemini CLI also uses ~/.gemini).
+if ((Test-Path -LiteralPath (Join-Path $GeminiHome 'antigravity') -PathType Container) -or
+    (Test-Path -LiteralPath (Join-Path $GeminiHome 'antigravity-ide') -PathType Container)) {
     $target = Join-Path $GeminiHome 'config\hooks.json'
     $settings = if (Test-Path -LiteralPath $target) { Get-Content -LiteralPath $target -Raw -Encoding UTF8 | ConvertFrom-Json } else { [pscustomobject]@{} }
     if ($settings -isnot [Management.Automation.PSCustomObject]) { throw ('Invalid JSON object: ' + $target) }
-    $command = 'powershell.exe -NoProfile -NonInteractive -File "' + $scriptPath + '" -Agent antigravity -DataDir "' + $DataDir + '" -HookEvent'
-    $handler = { param($name) [ordered]@{ type = 'command'; command = ($command + ' ' + $name); timeout = 3 } }
+    # Antigravity runs hooks through cmd /c, whose quoting depends on the caller, so the command
+    # has no quotes. It must answer with JSON, so a writer that cannot start still yields {}.
+    $handler = { param($name)
+        $invoke = "& '" + $scriptPath.Replace("'", "''") + "' -Agent antigravity -DataDir '" + $DataDir.Replace("'", "''") + "' -HookEvent " + $name
+        $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($invoke))
+        [ordered]@{ type = 'command'; command = ('powershell.exe -NoProfile -NonInteractive -EncodedCommand ' + $encoded + ' || echo {}'); timeout = 3 }
+    }
+    # Hooks block the agent loop; PreInvocation already keeps tool runs yellow.
     $expected = [ordered]@{
         PreInvocation = @(& $handler 'PreInvocation')
-        PostToolUse = @([ordered]@{ matcher = '*'; hooks = @(& $handler 'PostToolUse') })
         Stop = @(& $handler 'Stop')
     }
     $current = if ($settings.PSObject.Properties['agent-status']) { $settings.'agent-status' | ConvertTo-Json -Depth 20 -Compress } else { '' }

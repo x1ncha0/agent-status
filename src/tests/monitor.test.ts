@@ -1,7 +1,16 @@
 const windowsOnly = { skip: process.platform !== 'win32' && 'needs Windows PowerShell' };
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readdir, readFile, copyFile, unlink } from 'node:fs/promises';
+import {
+  mkdtemp,
+  mkdir,
+  writeFile,
+  readdir,
+  readFile,
+  copyFile,
+  rename,
+  unlink,
+} from 'node:fs/promises';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { OWNERLESS_TTL_MS, StatusStore, type Agent, type HookEvent } from '../monitor/status';
@@ -72,7 +81,7 @@ test('input, compaction and interruption', () => {
   assert.equal(classifyCodex(event('Interrupt'))?.status, 'available');
   assert.equal(classifyCodex(event('SessionStart', { source: 'compact' }))?.status, 'working');
 });
-test('antigravity: invocations and tools are working, Stop is ready, never red', () => {
+test('antigravity: invocations are working, Stop is ready, never red', () => {
   const store = new StatusStore('antigravity', classifyAntigravity);
   const send = (name: string, extra: Partial<HookEvent> = {}) =>
     store.accept(event(name, { agent: 'antigravity', ...extra }));
@@ -80,12 +89,7 @@ test('antigravity: invocations and tools are working, Stop is ready, never red',
   send('PreInvocation');
   assert.deepEqual(
     [store.snapshot().status, store.snapshot().reason],
-    ['working', 'Đang suy nghĩ'],
-  );
-  send('PostToolUse');
-  assert.deepEqual(
-    [store.snapshot().status, store.snapshot().reason],
-    ['working', 'Đang chạy tool'],
+    ['working', 'Đang suy nghĩ / làm việc'],
   );
   send('Stop', { source: 'model_stop' });
   assert.deepEqual(
@@ -98,8 +102,40 @@ test('antigravity: invocations and tools are working, Stop is ready, never red',
     [store.snapshot().status, store.snapshot().reason],
     ['available', 'Đã dừng do lỗi'],
   );
-  for (const name of ['PreToolUse', 'PermissionRequest', 'SessionEnd', 'Notification'])
+  for (const name of [
+    'PostToolUse',
+    'PreToolUse',
+    'PermissionRequest',
+    'SessionEnd',
+    'Notification',
+  ])
     assert.equal(classifyAntigravity(event(name, { agent: 'antigravity' })), undefined, name);
+});
+test('antigravity: conversations share one light and hide when the server exits', async () => {
+  await mkdir('.test-data', { recursive: true });
+  const directory = await mkdtemp(path.resolve('.test-data/antigravity-owner-'));
+  let running = true;
+  const monitor = new FileMonitor(
+    directory,
+    'antigravity',
+    classifyAntigravity,
+    async () => running,
+  );
+  const owner = { agent: 'antigravity' as Agent, owner_pid: 42, owner_started_at: 1000 };
+  await writeFile(
+    path.join(directory, 'a.json'),
+    JSON.stringify(event('Stop', { ...owner, session_id: 'conv-a', timestamp: 1000 })),
+  );
+  await writeFile(
+    path.join(directory, 'b.json'),
+    JSON.stringify(event('PreInvocation', { ...owner, session_id: 'conv-b', timestamp: 2000 })),
+  );
+  await monitor.poll();
+  assert.equal(monitor.snapshot().status, 'working', 'A busy conversation wins over an idle one');
+  assert.equal(monitor.snapshot().observed, true);
+  running = false;
+  await monitor.poll();
+  assert.equal(monitor.snapshot().observed, false, 'Quitting Antigravity hides its light');
 });
 test('multiple sessions, stale events and recovery', () => {
   const store = new StatusStore('claude', classifyClaude);
@@ -500,6 +536,7 @@ test('Windows writer and installer handle Antigravity', windowsOnly, async () =>
   const data = path.join(directory, 'data');
   const gemini = path.join(directory, 'gemini');
   await mkdir(path.join(gemini, 'config'), { recursive: true });
+  await mkdir(path.join(gemini, 'antigravity'));
   const hooksFile = path.join(gemini, 'config', 'hooks.json');
   await writeFile(hooksFile, JSON.stringify({ lint: { Stop: [{ command: 'echo lint' }] } }));
   const args = [
@@ -533,17 +570,46 @@ test('Windows writer and installer handle Antigravity', windowsOnly, async () =>
   const hooks = JSON.parse(await readFile(hooksFile, 'utf8'));
   assert.deepEqual(hooks.lint, { Stop: [{ command: 'echo lint' }] });
   const entry = hooks['agent-status'];
-  assert.deepEqual(Object.keys(entry), ['PreInvocation', 'PostToolUse', 'Stop']);
-  assert.equal(entry.PostToolUse[0].matcher, '*');
-  for (const [name, handler] of [
-    ['PreInvocation', entry.PreInvocation[0]],
-    ['PostToolUse', entry.PostToolUse[0].hooks[0]],
-    ['Stop', entry.Stop[0]],
-  ]) {
+  assert.deepEqual(Object.keys(entry), ['PreInvocation', 'Stop']);
+  for (const handler of [entry.PreInvocation[0], entry.Stop[0]]) {
     assert.equal(handler.timeout, 3);
-    assert.match(handler.command, /-Agent antigravity /);
-    assert.ok(handler.command.endsWith(` -HookEvent ${name}`), handler.command);
+    assert.ok(!handler.command.includes('"'), 'cmd /c quoting cannot break the command');
+    assert.ok(handler.command.endsWith(' || echo {}'), handler.command);
   }
+  // Antigravity runs the command through cmd /c. Go may or may not escape it verbatim.
+  for (const windowsVerbatimArguments of [false, true]) {
+    const ran = spawnSync('cmd.exe', ['/d', '/c', entry.Stop[0].command], {
+      input: JSON.stringify({ conversationId: 'via-cmd', terminationReason: 'model_stop' }),
+      encoding: 'utf8',
+      windowsHide: true,
+      windowsVerbatimArguments,
+      timeout: 5000,
+    });
+    assert.equal(ran.status, 0, ran.error?.message || ran.stderr);
+    assert.equal(ran.stdout.trim(), '{}', `verbatim=${windowsVerbatimArguments}`);
+  }
+  const viaCmd = await readdir(path.join(data, 'events', 'antigravity'));
+  assert.equal(viaCmd.length, 2);
+  for (const file of viaCmd) {
+    const record = JSON.parse(
+      await readFile(path.join(data, 'events', 'antigravity', file), 'utf8'),
+    );
+    assert.deepEqual(
+      [record.session_id, record.hook_event_name, record.source],
+      ['via-cmd', 'Stop', 'model_stop'],
+    );
+    await unlink(path.join(data, 'events', 'antigravity', file));
+  }
+  const installedWriter = path.join(data, 'Write-AgentEvent.ps1');
+  await rename(installedWriter, `${installedWriter}.moved`);
+  const missingWriter = spawnSync('cmd.exe', ['/d', '/c', entry.Stop[0].command], {
+    input: '{}',
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 5000,
+  });
+  await rename(`${installedWriter}.moved`, installedWriter);
+  assert.equal(missingWriter.stdout.trim(), '{}', 'A missing writer still answers with JSON');
   await writeFile(hooksFile, JSON.stringify({ 'agent-status': { ...entry, enabled: false } }));
   assert.deepEqual(antigravity(), { agent: 'antigravity', configured: false });
 
@@ -571,7 +637,7 @@ test('Windows writer and installer handle Antigravity', windowsOnly, async () =>
     });
   const result = hook(
     JSON.stringify({ conversationId: 'conv-1', workspacePaths: ['C:\\SECRET'] }),
-    'PostToolUse',
+    'PreInvocation',
   );
   assert.equal(result.status, 0, result.error?.message || result.stderr);
   const [owner, output] = result.stdout.split(/\r?\n/);
@@ -583,13 +649,13 @@ test('Windows writer and installer handle Antigravity', windowsOnly, async () =>
   assert.ok(!text.includes('SECRET'));
   const record = JSON.parse(text);
   assert.equal(record.session_id, 'conv-1');
-  assert.equal(record.hook_event_name, 'PostToolUse');
+  assert.equal(record.hook_event_name, 'PreInvocation');
   assert.equal(record.owner_pid, pid);
   assert.equal(record.owner_started_at, started);
   for (const [input, event] of [
     ['not json', 'Stop'],
     ['{}', 'Stop'],
-    [JSON.stringify({ conversationId: 'conv-1' }), 'PreToolUse'],
+    [JSON.stringify({ conversationId: 'conv-1' }), 'PostToolUse'],
   ]) {
     const bad = hook(input, event);
     assert.equal(bad.status, 0, bad.stderr);

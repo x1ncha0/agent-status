@@ -29,6 +29,12 @@ Ngày: 30/09/2026 · Trạng thái: chờ duyệt spec
 - Stdout phải là JSON. `{}` là trung tính cho `PreInvocation` (không `injectSteps`), `PostToolUse` (yêu cầu `{}`) và `Stop` (`decision` khác `"continue"` → cho dừng).
 - Hook chạy đồng bộ, chặn vòng lặp agent → writer phải nhanh; timeout đặt 3 giây như các agent khác.
 
+## Điều chỉnh sau review (30/09/2026)
+
+- Chỉ hook `PreInvocation` và `Stop`; bỏ `PostToolUse`. Hook chạy đồng bộ; `PreInvocation` đã giữ đèn vàng qua lúc chạy tool, còn `PostToolUse` chỉ thêm độ trễ sau mỗi tool (PowerShell trên Windows ~0,3–1 s). Chỗ nào bên dưới còn nhắc `PostToolUse` cho Antigravity thì phần này được ưu tiên.
+- Nhận diện Antigravity bằng `~/.gemini/antigravity` hoặc `~/.gemini/antigravity-ide` (Gemini CLI cũng tạo `~/.gemini`).
+- Lệnh hook luôn trả JSON kể cả khi writer không chạy được: mac `... 2>/dev/null || printf '{}'`; Windows `powershell.exe -NoProfile -NonInteractive -EncodedCommand <base64> || echo {}`. Lệnh Windows không có dấu ngoặc kép vì Antigravity chạy qua `cmd /c` và cách escape phụ thuộc bên gọi.
+
 ## Kiến trúc
 
 Không đổi: `StatusStore`, `FileMonitor`, owner probe, auto-hide, attention sound, updater, định dạng file event. `Agent` mở rộng thành `'claude' | 'codex' | 'antigravity'`.
