@@ -1,3 +1,4 @@
+const windowsOnly = { skip: process.platform !== 'win32' && 'needs Windows PowerShell' };
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readdir, readFile, copyFile, unlink } from 'node:fs/promises';
@@ -131,7 +132,7 @@ test('event validation', () => {
     !JSON.stringify(parseEvent({ ...event('Stop'), prompt: 'PRIVATE' })).includes('PRIVATE'),
   );
 });
-test('real PowerShell writer -> file monitor, private fields removed', async () => {
+test('real PowerShell writer -> file monitor, private fields removed', windowsOnly, async () => {
   await mkdir('.test-data', { recursive: true });
   const directory = await mkdtemp(path.resolve('.test-data/integration-'));
   for (const agent of ['claude', 'codex'] as Agent[]) {
@@ -290,7 +291,7 @@ test('source failures retain queued events and recover without inventing a red l
   assert.equal(monitor.snapshot().status, 'working');
   assert.equal(monitor.snapshot().observed, true);
 });
-test('installer merges existing settings and is idempotent', async () => {
+test('installer merges existing settings and is idempotent', windowsOnly, async () => {
   await mkdir('.test-data', { recursive: true });
   const directory = await mkdtemp(path.resolve('.test-data/install tiếng Việt-'));
   const claude = path.join(directory, 'claude');
@@ -371,164 +372,172 @@ test('installer merges existing settings and is idempotent', async () => {
   assert.equal(check().writerCurrent, false);
 });
 
-test('installed hooks preserve CLI ownership within the timeout and tolerate a missing helper', async () => {
-  await mkdir('.test-data', { recursive: true });
-  const directory = await mkdtemp(path.resolve('.test-data/hook-owner-'));
-  const data = path.join(directory, 'data');
-  const installArgs = [
-    '-NoProfile',
-    '-NonInteractive',
-    '-File',
-    path.resolve('integration/Install-Hooks.ps1'),
-    '-DataDir',
-    data,
-    '-ClaudeHome',
-    path.join(directory, 'claude'),
-    '-CodexHome',
-    path.join(directory, 'codex'),
-  ];
-  const installed = spawnSync('powershell.exe', [...installArgs, '-Apply'], {
-    encoding: 'utf8',
-    windowsHide: true,
-  });
-  assert.equal(installed.status, 0, installed.stderr);
-  const fixture = path.join(directory, 'claude.exe');
-  const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
-  const compiled = spawnSync(
-    'powershell.exe',
-    [
+test(
+  'installed hooks preserve CLI ownership within the timeout and tolerate a missing helper',
+  windowsOnly,
+  async () => {
+    await mkdir('.test-data', { recursive: true });
+    const directory = await mkdtemp(path.resolve('.test-data/hook-owner-'));
+    const data = path.join(directory, 'data');
+    const installArgs = [
       '-NoProfile',
       '-NonInteractive',
-      '-Command',
-      `Add-Type -Path ${quote(path.resolve('src/tests/fixtures/HookOwner.cs'))} -OutputAssembly ${quote(fixture)} -OutputType ConsoleApplication -ErrorAction Stop`,
-    ],
-    { encoding: 'utf8', windowsHide: true },
-  );
-  assert.equal(compiled.status, 0, compiled.stderr);
-  await copyFile(fixture, path.join(directory, 'codex.exe'));
-  for (const agent of ['claude', 'codex'] as Agent[]) {
-    const eventDir = path.join(data, 'events', agent);
-    for (const hook of ['PreToolUse', 'UserPromptSubmit']) {
-      const result = spawnSync(
-        path.join(directory, `${agent}.exe`),
-        [path.join(data, 'Write-AgentEvent.ps1'), data, agent],
-        {
-          input: JSON.stringify(event(hook, { tool_name: 'Bash', tool_use_id: 'test-tool' })),
-          encoding: 'utf8',
-          windowsHide: true,
-          timeout: 3000,
-        },
-      );
-      assert.equal(result.status, 0, result.error?.message || result.stderr);
-      assert.equal(result.stderr, '');
-      const [pid, started] = result.stdout.trim().split(':').map(Number);
-      const files = await readdir(eventDir);
-      assert.equal(files.length, 1, 'One complete event is written before the timeout');
-      const record = JSON.parse(await readFile(path.join(eventDir, files[0]), 'utf8'));
-      assert.equal(record.owner_pid, pid);
-      assert.equal(record.owner_started_at, started);
-      assert.equal(record.hook_event_name, hook);
-      assert.equal(record.tool_use_id, 'test-tool');
-      await unlink(path.join(eventDir, files[0]));
-    }
-  }
-  await unlink(path.join(data, 'ProcessOwner.dll'));
-  const check = spawnSync('powershell.exe', [...installArgs, '-Check'], {
-    encoding: 'utf8',
-    windowsHide: true,
-  });
-  assert.equal(check.status, 0, check.stderr);
-  assert.equal(JSON.parse(check.stdout).needsInstall, true);
-  const fallback = spawnSync(fixture, [path.join(data, 'Write-AgentEvent.ps1'), data, 'claude'], {
-    input: JSON.stringify(event('UserPromptSubmit')),
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 3000,
-  });
-  assert.equal(fallback.status, 0, fallback.error?.message || fallback.stderr);
-  assert.equal(fallback.stderr, '');
-  const [file] = await readdir(path.join(data, 'events/claude'));
-  const record = JSON.parse(await readFile(path.join(data, 'events/claude', file), 'utf8'));
-  assert.equal(record.hook_event_name, 'UserPromptSubmit');
-  assert.equal(record.owner_pid, undefined, 'Unavailable metadata does not lose the event');
-});
-
-test('installer migrates console-hiding hooks without duplicates or changing other hooks/trust', async () => {
-  await mkdir('.test-data', { recursive: true });
-  const directory = await mkdtemp(path.resolve('.test-data/console-hook-'));
-  const claude = path.join(directory, 'claude');
-  const codex = path.join(directory, 'codex');
-  const data = path.join(directory, 'data');
-  const args = [
-    '-NoProfile',
-    '-NonInteractive',
-    '-File',
-    path.resolve('integration/Install-Hooks.ps1'),
-    '-DataDir',
-    data,
-    '-ClaudeHome',
-    claude,
-    '-CodexHome',
-    codex,
-  ];
-  const run = (mode: string) => {
-    const result = spawnSync('powershell.exe', [...args, mode], {
+      '-File',
+      path.resolve('integration/Install-Hooks.ps1'),
+      '-DataDir',
+      data,
+      '-ClaudeHome',
+      path.join(directory, 'claude'),
+      '-CodexHome',
+      path.join(directory, 'codex'),
+    ];
+    const installed = spawnSync('powershell.exe', [...installArgs, '-Apply'], {
       encoding: 'utf8',
       windowsHide: true,
     });
-    assert.equal(result.status, 0, result.stderr);
-    return result.stdout;
-  };
-  run('-Apply');
-  const hooksPath = path.join(codex, 'hooks.json');
-  const hooks = JSON.parse(await readFile(hooksPath, 'utf8'));
-  const safeCommand = hooks.hooks.Stop[0].hooks[0].command;
-  for (const groups of Object.values(hooks.hooks) as { hooks: { command: string }[] }[][]) {
-    for (const group of groups)
-      for (const handler of group.hooks)
-        handler.command = handler.command.replace(
-          '-NonInteractive -File',
-          '-NonInteractive -WindowStyle Hidden -File',
+    assert.equal(installed.status, 0, installed.stderr);
+    const fixture = path.join(directory, 'claude.exe');
+    const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
+    const compiled = spawnSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `Add-Type -Path ${quote(path.resolve('src/tests/fixtures/HookOwner.cs'))} -OutputAssembly ${quote(fixture)} -OutputType ConsoleApplication -ErrorAction Stop`,
+      ],
+      { encoding: 'utf8', windowsHide: true },
+    );
+    assert.equal(compiled.status, 0, compiled.stderr);
+    await copyFile(fixture, path.join(directory, 'codex.exe'));
+    for (const agent of ['claude', 'codex'] as Agent[]) {
+      const eventDir = path.join(data, 'events', agent);
+      for (const hook of ['PreToolUse', 'UserPromptSubmit']) {
+        const result = spawnSync(
+          path.join(directory, `${agent}.exe`),
+          [path.join(data, 'Write-AgentEvent.ps1'), data, agent],
+          {
+            input: JSON.stringify(event(hook, { tool_name: 'Bash', tool_use_id: 'test-tool' })),
+            encoding: 'utf8',
+            windowsHide: true,
+            timeout: 3000,
+          },
         );
-  }
-  const unrelated = {
-    type: 'command',
-    command: 'powershell.exe -WindowStyle Hidden -File "C:\\Other\\hook.ps1"',
-  };
-  hooks.hooks.Stop[0].hooks.push(unrelated);
-  hooks.hooks.Stop.push({ hooks: [{ type: 'command', command: safeCommand }] });
-  await writeFile(hooksPath, JSON.stringify(hooks));
-  const trust = '[hooks.state]\n# Existing trust must be reviewed by the user after migration.\n';
-  await writeFile(path.join(codex, 'config.toml'), trust);
-  assert.equal(JSON.parse(run('-Check')).needsInstall, true);
-  run('-Apply');
-  assert.equal(JSON.parse(run('-Check')).needsInstall, false);
-  const migrated = JSON.parse(await readFile(hooksPath, 'utf8'));
-  for (const groups of Object.values(migrated.hooks) as { hooks: { command: string }[] }[][]) {
-    const own = groups
-      .flatMap((group) => group.hooks)
-      .filter((handler) => handler.command.includes('Write-AgentEvent.ps1'));
-    assert.equal(own.length, 1);
-    assert.ok(!own[0].command.includes('-WindowStyle'));
-  }
-  assert.deepEqual(migrated.hooks.Stop[0].hooks, [unrelated]);
-  assert.equal(await readFile(path.join(codex, 'config.toml'), 'utf8'), trust);
-  const result = spawnSync(
-    'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-Command', safeCommand],
-    {
-      input: JSON.stringify({
-        session_id: 'console-regression',
-        hook_event_name: 'UserPromptSubmit',
-      }),
+        assert.equal(result.status, 0, result.error?.message || result.stderr);
+        assert.equal(result.stderr, '');
+        const [pid, started] = result.stdout.trim().split(':').map(Number);
+        const files = await readdir(eventDir);
+        assert.equal(files.length, 1, 'One complete event is written before the timeout');
+        const record = JSON.parse(await readFile(path.join(eventDir, files[0]), 'utf8'));
+        assert.equal(record.owner_pid, pid);
+        assert.equal(record.owner_started_at, started);
+        assert.equal(record.hook_event_name, hook);
+        assert.equal(record.tool_use_id, 'test-tool');
+        await unlink(path.join(eventDir, files[0]));
+      }
+    }
+    await unlink(path.join(data, 'ProcessOwner.dll'));
+    const check = spawnSync('powershell.exe', [...installArgs, '-Check'], {
       encoding: 'utf8',
       windowsHide: true,
-    },
-  );
-  assert.equal(result.status, 0, result.stderr);
-  const events = await readdir(path.join(data, 'events/codex'));
-  assert.equal(events.length, 1, 'The migrated hook still forwards stdin to the writer');
-});
+    });
+    assert.equal(check.status, 0, check.stderr);
+    assert.equal(JSON.parse(check.stdout).needsInstall, true);
+    const fallback = spawnSync(fixture, [path.join(data, 'Write-AgentEvent.ps1'), data, 'claude'], {
+      input: JSON.stringify(event('UserPromptSubmit')),
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 3000,
+    });
+    assert.equal(fallback.status, 0, fallback.error?.message || fallback.stderr);
+    assert.equal(fallback.stderr, '');
+    const [file] = await readdir(path.join(data, 'events/claude'));
+    const record = JSON.parse(await readFile(path.join(data, 'events/claude', file), 'utf8'));
+    assert.equal(record.hook_event_name, 'UserPromptSubmit');
+    assert.equal(record.owner_pid, undefined, 'Unavailable metadata does not lose the event');
+  },
+);
+
+test(
+  'installer migrates console-hiding hooks without duplicates or changing other hooks/trust',
+  windowsOnly,
+  async () => {
+    await mkdir('.test-data', { recursive: true });
+    const directory = await mkdtemp(path.resolve('.test-data/console-hook-'));
+    const claude = path.join(directory, 'claude');
+    const codex = path.join(directory, 'codex');
+    const data = path.join(directory, 'data');
+    const args = [
+      '-NoProfile',
+      '-NonInteractive',
+      '-File',
+      path.resolve('integration/Install-Hooks.ps1'),
+      '-DataDir',
+      data,
+      '-ClaudeHome',
+      claude,
+      '-CodexHome',
+      codex,
+    ];
+    const run = (mode: string) => {
+      const result = spawnSync('powershell.exe', [...args, mode], {
+        encoding: 'utf8',
+        windowsHide: true,
+      });
+      assert.equal(result.status, 0, result.stderr);
+      return result.stdout;
+    };
+    run('-Apply');
+    const hooksPath = path.join(codex, 'hooks.json');
+    const hooks = JSON.parse(await readFile(hooksPath, 'utf8'));
+    const safeCommand = hooks.hooks.Stop[0].hooks[0].command;
+    for (const groups of Object.values(hooks.hooks) as { hooks: { command: string }[] }[][]) {
+      for (const group of groups)
+        for (const handler of group.hooks)
+          handler.command = handler.command.replace(
+            '-NonInteractive -File',
+            '-NonInteractive -WindowStyle Hidden -File',
+          );
+    }
+    const unrelated = {
+      type: 'command',
+      command: 'powershell.exe -WindowStyle Hidden -File "C:\\Other\\hook.ps1"',
+    };
+    hooks.hooks.Stop[0].hooks.push(unrelated);
+    hooks.hooks.Stop.push({ hooks: [{ type: 'command', command: safeCommand }] });
+    await writeFile(hooksPath, JSON.stringify(hooks));
+    const trust = '[hooks.state]\n# Existing trust must be reviewed by the user after migration.\n';
+    await writeFile(path.join(codex, 'config.toml'), trust);
+    assert.equal(JSON.parse(run('-Check')).needsInstall, true);
+    run('-Apply');
+    assert.equal(JSON.parse(run('-Check')).needsInstall, false);
+    const migrated = JSON.parse(await readFile(hooksPath, 'utf8'));
+    for (const groups of Object.values(migrated.hooks) as { hooks: { command: string }[] }[][]) {
+      const own = groups
+        .flatMap((group) => group.hooks)
+        .filter((handler) => handler.command.includes('Write-AgentEvent.ps1'));
+      assert.equal(own.length, 1);
+      assert.ok(!own[0].command.includes('-WindowStyle'));
+    }
+    assert.deepEqual(migrated.hooks.Stop[0].hooks, [unrelated]);
+    assert.equal(await readFile(path.join(codex, 'config.toml'), 'utf8'), trust);
+    const result = spawnSync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', safeCommand],
+      {
+        input: JSON.stringify({
+          session_id: 'console-regression',
+          hook_event_name: 'UserPromptSubmit',
+        }),
+        encoding: 'utf8',
+        windowsHide: true,
+      },
+    );
+    assert.equal(result.status, 0, result.stderr);
+    const events = await readdir(path.join(data, 'events/codex'));
+    assert.equal(events.length, 1, 'The migrated hook still forwards stdin to the writer');
+  },
+);
 
 test('owner probe verifies start time once and reports exit without spawning a shell', async () => {
   const alive = new Set([123]);

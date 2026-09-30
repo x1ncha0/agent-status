@@ -10,14 +10,14 @@ Ngày: 30/09/2026 · Trạng thái: đã duyệt hướng, chờ plan
 
 ## Quyết định đã chốt
 
-| Vấn đề | Chọn | Lý do |
-| --- | --- | --- |
-| Build mac ở đâu | GitHub Actions `macos-latest` | Máy dev là Windows; electron-builder không build `.app` từ Windows |
-| Ký số | Không có Apple Developer ID; chỉ ad-hoc signature | Giống bản Windows (chưa ký). README hướng dẫn mở lần đầu |
-| Cập nhật trên mac | Tải `.dmg` vào Downloads, kiểm SHA256, mở Finder | App chưa ký; không tự thay bundle |
-| Hook writer mac | Script JXA (`osascript -l JavaScript`) có sẵn trong macOS | Không phụ thuộc Node/Python; parse JSON đầy đủ (kể cả `null`, mà `plutil` không đọc được); chép vào data dir nên không gãy khi di chuyển app |
-| Installer mac | TypeScript trong main process | Test được bằng `node --test`; Windows giữ nguyên `Install-Hooks.ps1` |
-| Kiến trúc CPU | Hai file `.dmg` riêng: arm64, x64 | Universal gấp đôi dung lượng; updater chọn theo `process.arch` |
+| Vấn đề            | Chọn                                                      | Lý do                                                                                                                                        |
+| ----------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Build mac ở đâu   | GitHub Actions `macos-latest`                             | Máy dev là Windows; electron-builder không build `.app` từ Windows                                                                           |
+| Ký số             | Không có Apple Developer ID; chỉ ad-hoc signature         | Giống bản Windows (chưa ký). README hướng dẫn mở lần đầu                                                                                     |
+| Cập nhật trên mac | Tải `.dmg` vào Downloads, kiểm SHA256, mở Finder          | App chưa ký; không tự thay bundle                                                                                                            |
+| Hook writer mac   | Script JXA (`osascript -l JavaScript`) có sẵn trong macOS | Không phụ thuộc Node/Python; parse JSON đầy đủ (kể cả `null`, mà `plutil` không đọc được); chép vào data dir nên không gãy khi di chuyển app |
+| Installer mac     | TypeScript trong main process                             | Test được bằng `node --test`; Windows giữ nguyên `Install-Hooks.ps1`                                                                         |
+| Kiến trúc CPU     | Hai file `.dmg` riêng: arm64, x64                         | Universal gấp đôi dung lượng; updater chọn theo `process.arch`                                                                               |
 
 ## Kiến trúc
 
@@ -25,14 +25,14 @@ Không đổi: `src/monitor/*` (trừ `process-owner.ts`), renderer, `window-sta
 
 Điểm phụ thuộc nền tảng:
 
-| Chỗ | Windows (giữ nguyên) | macOS (mới) |
-| --- | --- | --- |
-| Data dir | `%LOCALAPPDATA%\AgentStatus` | `~/Library/Application Support/AgentStatus` (`app.getPath('appData')`) |
-| `processStartTime(pid)` | PowerShell `Get-Process` | `/bin/ps -o lstart= -p <pid>` với `LC_ALL=C` |
-| Integration backend | `Install-Hooks.ps1` | `src/main/integration-mac.ts` + `integration/mac/write-agent-event.js` |
-| Updater | thay exe portable | tải `.dmg`, reveal trong Finder |
-| Mở cùng hệ thống | "Start with Windows" | "Start at login" (`setLoginItemSettings({ openAtLogin })`) |
-| Cửa sổ / tray | như cũ | không có icon Dock (`LSUIElement`), hiện trên mọi Space, icon menu bar 18px |
+| Chỗ                     | Windows (giữ nguyên)         | macOS (mới)                                                                 |
+| ----------------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| Data dir                | `%LOCALAPPDATA%\AgentStatus` | `~/Library/Application Support/AgentStatus` (`app.getPath('appData')`)      |
+| `processStartTime(pid)` | PowerShell `Get-Process`     | `/bin/ps -o lstart= -p <pid>` với `LC_ALL=C`                                |
+| Integration backend     | `Install-Hooks.ps1`          | `src/main/integration-mac.ts` + `integration/mac/write-agent-event.js`      |
+| Updater                 | thay exe portable            | tải `.dmg`, reveal trong Finder                                             |
+| Mở cùng hệ thống        | "Start with Windows"         | "Start at login" (`setLoginItemSettings({ openAtLogin })`)                  |
+| Cửa sổ / tray           | như cũ                       | không có icon Dock (`LSUIElement`), hiện trên mọi Space, icon menu bar 18px |
 
 `AGENT_STATUS_DATA_DIR` vẫn override data dir trên cả hai nền tảng.
 

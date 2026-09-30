@@ -35,36 +35,38 @@
 
 ## File Structure
 
-| File | Responsibility |
-| --- | --- |
-| `src/common/platform.ts` (new) | `isMac`, `isWindows`, `defaultDataDir()` |
-| `src/monitor/process-owner.ts` (modify) | add `parseLstart`, darwin branch of `processStartTime` |
-| `src/main/update-release.ts` (modify) | add `updateAsset(platform, arch)` |
-| `src/main/updater.ts` (modify) | use `updateAsset`; mac always saves to Downloads |
-| `src/main/integration-backend.ts` (new) | `Installation`, `IntegrationBackend` types, `createWindowsBackend()` |
-| `src/main/integration-mac.ts` (new) | pure macOS installer: `createMacBackend()`, `macHookCommand()` |
-| `src/main/integration.ts` (modify) | dialog flow, now driven by an `IntegrationBackend` |
-| `integration/mac/write-agent-event.js` (new) | JXA hook writer |
-| `src/main/window.ts`, `src/main/tray.ts`, `src/main/main.ts` (modify) | mac window/tray/login-item wiring, backend selection |
-| `src/tests/platform.test.ts` (new) | `defaultDataDir`, `parseLstart`, `updateAsset` |
-| `src/tests/integration-mac.test.ts` (new) | installer + real JXA writer (darwin-only part) |
-| `src/tests/monitor.test.ts` (modify) | skip PowerShell tests off Windows |
-| `eslint.config.mjs` (modify) | JXA globals for `integration/mac/*.js` |
-| `package.json`, `assets/icon-mac.png`, `scripts/package-files.cjs` | packaging |
-| `.github/workflows/release.yml` (new) | CI build + release |
-| `README.md`, `RELEASE_NOTES.md` | docs |
+| File                                                                  | Responsibility                                                       |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `src/common/platform.ts` (new)                                        | `isMac`, `isWindows`, `defaultDataDir()`                             |
+| `src/monitor/process-owner.ts` (modify)                               | add `parseLstart`, darwin branch of `processStartTime`               |
+| `src/main/update-release.ts` (modify)                                 | add `updateAsset(platform, arch)`                                    |
+| `src/main/updater.ts` (modify)                                        | use `updateAsset`; mac always saves to Downloads                     |
+| `src/main/integration-backend.ts` (new)                               | `Installation`, `IntegrationBackend` types, `createWindowsBackend()` |
+| `src/main/integration-mac.ts` (new)                                   | pure macOS installer: `createMacBackend()`, `macHookCommand()`       |
+| `src/main/integration.ts` (modify)                                    | dialog flow, now driven by an `IntegrationBackend`                   |
+| `integration/mac/write-agent-event.js` (new)                          | JXA hook writer                                                      |
+| `src/main/window.ts`, `src/main/tray.ts`, `src/main/main.ts` (modify) | mac window/tray/login-item wiring, backend selection                 |
+| `src/tests/platform.test.ts` (new)                                    | `defaultDataDir`, `parseLstart`, `updateAsset`                       |
+| `src/tests/integration-mac.test.ts` (new)                             | installer + real JXA writer (darwin-only part)                       |
+| `src/tests/monitor.test.ts` (modify)                                  | skip PowerShell tests off Windows                                    |
+| `eslint.config.mjs` (modify)                                          | JXA globals for `integration/mac/*.js`                               |
+| `package.json`, `assets/icon-mac.png`, `scripts/package-files.cjs`    | packaging                                                            |
+| `.github/workflows/release.yml` (new)                                 | CI build + release                                                   |
+| `README.md`, `RELEASE_NOTES.md`                                       | docs                                                                 |
 
 ---
 
 ### Task 1: Platform helpers, `parseLstart`, macOS `processStartTime`, skip Windows-only tests
 
 **Files:**
+
 - Create: `src/common/platform.ts`
 - Modify: `src/monitor/process-owner.ts`
 - Modify: `src/tests/monitor.test.ts` (tests at lines 134, 293, 374, 456)
 - Test: `src/tests/platform.test.ts`
 
 **Interfaces:**
+
 - Produces: `isMac: boolean`, `isWindows: boolean`, `defaultDataDir(platform: NodeJS.Platform, env: NodeJS.ProcessEnv, appData: string): string`, `parseLstart(text: string): number` (exported from `src/monitor/process-owner.ts`).
 
 - [ ] **Step 1: Write the failing test** — `src/tests/platform.test.ts`
@@ -85,15 +87,18 @@ test('data dir follows the platform convention and honours the override', () => 
     defaultDataDir('darwin', { LOCALAPPDATA: 'ignored' }, '/Users/a/Library/Application Support'),
     path.join('/Users/a/Library/Application Support', 'AgentStatus'),
   );
-  assert.equal(
-    defaultDataDir('darwin', { AGENT_STATUS_DATA_DIR: '/custom' }, '/x'),
-    '/custom',
-  );
+  assert.equal(defaultDataDir('darwin', { AGENT_STATUS_DATA_DIR: '/custom' }, '/x'), '/custom');
 });
 
 test('ps lstart output parses as local time, including single-digit days', () => {
-  assert.equal(parseLstart('Tue Sep 30 10:11:12 2026'), new Date(2026, 8, 30, 10, 11, 12).getTime());
-  assert.equal(parseLstart('  Wed Oct  1 09:00:00 2026\n'), new Date(2026, 9, 1, 9, 0, 0).getTime());
+  assert.equal(
+    parseLstart('Tue Sep 30 10:11:12 2026'),
+    new Date(2026, 8, 30, 10, 11, 12).getTime(),
+  );
+  assert.equal(
+    parseLstart('  Wed Oct  1 09:00:00 2026\n'),
+    new Date(2026, 9, 1, 9, 0, 0).getTime(),
+  );
   assert.equal(parseLstart(''), 0);
   assert.equal(parseLstart('garbage'), 0);
   assert.equal(parseLstart('Tue Xyz 30 10:11:12 2026'), 0);
@@ -195,11 +200,13 @@ git commit -m "feat: add platform helpers and macOS process start time"
 ### Task 2: Platform-specific update asset and macOS download flow
 
 **Files:**
+
 - Modify: `src/main/update-release.ts`
 - Modify: `src/main/updater.ts`
 - Test: `src/tests/platform.test.ts` (append)
 
 **Interfaces:**
+
 - Produces: `updateAsset(platform: NodeJS.Platform, arch: string): string | undefined` in `src/main/update-release.ts`.
 
 - [ ] **Step 1: Write the failing test** — append to `src/tests/platform.test.ts` (add import `import { updateAsset } from '../main/update-release';`)
@@ -229,6 +236,7 @@ export function updateAsset(platform: NodeJS.Platform, arch: string): string | u
 ```
 
 In `src/main/updater.ts`:
+
 1. Replace `const ASSET = 'AgentStatus.exe';` with
    ```ts
    const ASSET = updateAsset(process.platform, process.arch);
@@ -237,7 +245,12 @@ In `src/main/updater.ts`:
 2. Replace the Downloads fallback in `chooseTarget` with
    ```ts
    // AgentStatus.exe -> AgentStatus-1.2.0.exe; AgentStatus-mac-arm64.dmg -> AgentStatus-1.2.0-mac-arm64.dmg
-   return { file: path.join(app.getPath('downloads'), asset.replace(/^AgentStatus/, `AgentStatus-${version}`)) };
+   return {
+     file: path.join(
+       app.getPath('downloads'),
+       asset.replace(/^AgentStatus/, `AgentStatus-${version}`),
+     ),
+   };
    ```
    giving `chooseTarget(version: string, asset: string)`. `portableExe()` already returns `undefined` on macOS, so mac always lands in Downloads.
 3. `expectedDigest(release, asset, signal)` takes the asset name instead of reading `ASSET`.
@@ -271,12 +284,14 @@ git commit -m "feat: pick the update asset per platform and save mac updates to 
 ### Task 3: Integration backend interface + macOS installer
 
 **Files:**
+
 - Create: `src/main/integration-backend.ts`
 - Create: `src/main/integration-mac.ts`
 - Modify: `src/main/integration.ts`
 - Test: `src/tests/integration-mac.test.ts`
 
 **Interfaces:**
+
 - Produces (in `integration-backend.ts`):
   ```ts
   export interface Installation {
@@ -284,7 +299,12 @@ git commit -m "feat: pick the update asset per platform and save mac updates to 
     writerCurrent: boolean;
     agents: { agent: Agent; configured: boolean }[];
   }
-  export interface SetupPaths { dataDir: string; integrationDir: string; claudeHome: string; codexHome: string }
+  export interface SetupPaths {
+    dataDir: string;
+    integrationDir: string;
+    claudeHome: string;
+    codexHome: string;
+  }
   export interface IntegrationBackend {
     check(): Promise<Installation>;
     apply(): Promise<void>;
@@ -326,13 +346,19 @@ test('mac installer: fresh install, keeps other hooks, idempotent, backs up', as
   const settings = path.join(paths.claudeHome, 'settings.json');
   await writeFile(
     settings,
-    JSON.stringify({ theme: 'dark', hooks: { Stop: [{ hooks: [{ type: 'command', command: 'echo existing' }] }] } }),
+    JSON.stringify({
+      theme: 'dark',
+      hooks: { Stop: [{ hooks: [{ type: 'command', command: 'echo existing' }] }] },
+    }),
   );
 
   const before = await backend.check();
   assert.equal(before.needsInstall, true);
   assert.equal(before.writerCurrent, false);
-  assert.deepEqual(before.agents.map((a) => a.configured), [false, false]);
+  assert.deepEqual(
+    before.agents.map((a) => a.configured),
+    [false, false],
+  );
 
   await backend.apply();
   const after = await backend.check();
@@ -389,7 +415,11 @@ test('mac installer: stale handler from an old data dir is replaced, not duplica
         Stop: [
           {
             hooks: [
-              { type: 'command', command: macHookCommand('claude', '/old/AgentStatus'), timeout: 3 },
+              {
+                type: 'command',
+                command: macHookCommand('claude', '/old/AgentStatus'),
+                timeout: 3,
+              },
               { type: 'command', command: 'echo keep' },
             ],
           },
@@ -508,7 +538,14 @@ const COMMON = [
   'Stop',
 ];
 const EVENTS: Record<Agent, string[]> = {
-  claude: [...COMMON, 'PostToolUseFailure', 'StopFailure', 'Notification', 'Elicitation', 'ElicitationResult'],
+  claude: [
+    ...COMMON,
+    'PostToolUseFailure',
+    'StopFailure',
+    'Notification',
+    'Elicitation',
+    'ElicitationResult',
+  ],
   codex: [...COMMON, 'Interrupt'],
 };
 
@@ -575,7 +612,9 @@ function merge(settings: Settings, agent: Agent, command: string) {
 }
 
 const sha256 = async (file: string) =>
-  createHash('sha256').update(await readFile(file)).digest('hex');
+  createHash('sha256')
+    .update(await readFile(file))
+    .digest('hex');
 
 export function createMacBackend(paths: SetupPaths): IntegrationBackend {
   const bundled = path.join(paths.integrationDir, 'mac', MAC_WRITER);
@@ -603,7 +642,11 @@ export function createMacBackend(paths: SetupPaths): IntegrationBackend {
         /* Not installed yet. */
       }
       const agents = plans.map(({ agent, configured }) => ({ agent, configured }));
-      return { writerCurrent, agents, needsInstall: !writerCurrent || agents.some((a) => !a.configured) };
+      return {
+        writerCurrent,
+        agents,
+        needsInstall: !writerCurrent || agents.some((a) => !a.configured),
+      };
     },
     async apply() {
       const plans = await plan();
@@ -654,11 +697,13 @@ git commit -m "feat: add macOS hook installer behind an integration backend"
 ### Task 4: JXA hook writer + darwin tests + lint config
 
 **Files:**
+
 - Create/finalize: `integration/mac/write-agent-event.js`
 - Modify: `eslint.config.mjs`
 - Test: `src/tests/integration-mac.test.ts` (append darwin-only tests)
 
 **Interfaces:**
+
 - Consumes: `MAC_WRITER`, `setup()` helper already in the test file. The JXA file duplicates `parseLstart`'s regex (it cannot import TS).
 
 - [ ] **Step 1: Write the failing (darwin-only) tests** — append to `src/tests/integration-mac.test.ts`:
@@ -683,15 +728,22 @@ const payload = (extra: Record<string, unknown> = {}) =>
 
 test('JXA writer records only allowed fields, prints nothing, exits 0', macOnly, async () => {
   const { paths } = await setup();
-  const result = spawnSync('/usr/bin/osascript', ['-l', 'JavaScript', writer, 'claude', paths.dataDir], {
-    input: payload(),
-    encoding: 'utf8',
-  });
+  const result = spawnSync(
+    '/usr/bin/osascript',
+    ['-l', 'JavaScript', writer, 'claude', paths.dataDir],
+    {
+      input: payload(),
+      encoding: 'utf8',
+    },
+  );
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, '');
   const dir = path.join(paths.dataDir, 'events', 'claude');
   const files = await readdir(dir);
-  assert.deepEqual(files.filter((f) => !f.endsWith('.json')), []);
+  assert.deepEqual(
+    files.filter((f) => !f.endsWith('.json')),
+    [],
+  );
   assert.equal(files.length, 1);
   const text = await readFile(path.join(dir, files[0]), 'utf8');
   assert.doesNotMatch(text, /SECRET|xxxx/);
@@ -711,10 +763,14 @@ test('JXA writer ignores incomplete payloads and unknown agents', macOnly, async
     ['claude', 'not json'],
     ['other', payload()],
   ]) {
-    const result = spawnSync('/usr/bin/osascript', ['-l', 'JavaScript', writer, agent, paths.dataDir], {
-      input,
-      encoding: 'utf8',
-    });
+    const result = spawnSync(
+      '/usr/bin/osascript',
+      ['-l', 'JavaScript', writer, agent, paths.dataDir],
+      {
+        input,
+        encoding: 'utf8',
+      },
+    );
     assert.equal(result.status, 0);
     assert.equal(result.stdout, '');
   }
@@ -770,7 +826,9 @@ function processTable() {
   const task = $.NSTask.alloc.init;
   task.executableURL = $.NSURL.fileURLWithPath('/bin/ps');
   task.arguments = $(['-A', '-o', 'pid=,ppid=,lstart=,args=']);
-  const env = $.NSMutableDictionary.dictionaryWithDictionary($.NSProcessInfo.processInfo.environment);
+  const env = $.NSMutableDictionary.dictionaryWithDictionary(
+    $.NSProcessInfo.processInfo.environment,
+  );
   env.setObjectForKey('C', 'LC_ALL');
   task.environment = env;
   const pipe = $.NSPipe.pipe;
@@ -781,7 +839,9 @@ function processTable() {
   task.waitUntilExit;
   const table = new Map();
   for (const line of text.split('\n')) {
-    const match = /^\s*(\d+)\s+(\d+)\s+(\w{3} \w{3} +\d{1,2} \d\d:\d\d:\d\d \d{4})\s+(.*)$/.exec(line);
+    const match = /^\s*(\d+)\s+(\d+)\s+(\w{3} \w{3} +\d{1,2} \d\d:\d\d:\d\d \d{4})\s+(.*)$/.exec(
+      line,
+    );
     if (match)
       table.set(+match[1], { ppid: +match[2], started: parseLstart(match[3]), args: match[4] });
   }
@@ -842,7 +902,12 @@ function run(argv) {
     files.createDirectoryAtPathWithIntermediateDirectoriesAttributesError(dir, true, $(), $());
     const name = $.NSUUID.UUID.UUIDString.js;
     const temporary = dir + '/' + name + '.tmp';
-    $(JSON.stringify(record)).writeToFileAtomicallyEncodingError(temporary, false, $.NSUTF8StringEncoding, $());
+    $(JSON.stringify(record)).writeToFileAtomicallyEncodingError(
+      temporary,
+      false,
+      $.NSUTF8StringEncoding,
+      $(),
+    );
     files.moveItemAtPathToPathError(temporary, dir + '/' + name + '.json', $());
   } catch {
     // Monitoring không được chặn agent hoặc thay đổi approval decision.
@@ -878,9 +943,11 @@ git commit -m "feat: add JXA hook writer for macOS"
 ### Task 5: Wire macOS into window, tray and main
 
 **Files:**
+
 - Modify: `src/main/main.ts`, `src/main/window.ts`, `src/main/tray.ts`
 
 **Interfaces:**
+
 - Consumes: `defaultDataDir`, `isMac`, `isWindows` (Task 1); `createWindowsBackend`, `SetupPaths` (Task 3); `createMacBackend` (Task 3); `createIntegrationSetup(win, dataDir, backend)` (Task 3).
 
 - [ ] **Step 1: `src/main/main.ts`**
@@ -888,6 +955,7 @@ git commit -m "feat: add JXA hook writer for macOS"
 ```ts
 const dataDir = defaultDataDir(process.platform, process.env, app.getPath('appData'));
 ```
+
 (replacing the current `dataDir` expression; import from `../common/platform`). Then build the paths object currently passed to `createIntegrationSetup`, and:
 
 ```ts
@@ -900,7 +968,8 @@ const setup = createIntegrationSetup(win, dataDir, backend);
 
 ```ts
 // Menu bar apps float over every Space and full-screen app, like the Windows topmost window.
-if (process.platform === 'darwin') win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+if (process.platform === 'darwin')
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 ```
 
 - [ ] **Step 3: `src/main/tray.ts`**
@@ -940,6 +1009,7 @@ git commit -m "feat: run on macOS with menu bar tray, all-Spaces window and logi
 ### Task 6: Packaging, version bump and docs
 
 **Files:**
+
 - Modify: `package.json`, `scripts/package-files.cjs`, `README.md`, `RELEASE_NOTES.md`
 - Create: `assets/icon-mac.png`
 
@@ -991,10 +1061,15 @@ const artifacts = fs
   .filter((name) => name === 'AgentStatus.exe' || /^AgentStatus-mac-(arm64|x64)\.dmg$/.test(name));
 if (!artifacts.length) throw new Error('No release artifact found in release/.');
 for (const name of artifacts) {
-  const digest = crypto.createHash('sha256').update(fs.readFileSync(`release/${name}`)).digest('hex');
+  const digest = crypto
+    .createHash('sha256')
+    .update(fs.readFileSync(`release/${name}`))
+    .digest('hex');
   fs.writeFileSync(`release/${name}.sha256`, `${digest}  ${name}\n`);
 }
-console.log(`Packaged ${artifacts.join(', ')} with SHA256, integration scripts and documentation in release/.`);
+console.log(
+  `Packaged ${artifacts.join(', ')} with SHA256, integration scripts and documentation in release/.`,
+);
 ```
 
 - [ ] **Step 4: `README.md`**
@@ -1032,6 +1107,7 @@ git commit -m "chore: package macOS dmg builds and release 1.2.0 docs"
 ### Task 7: GitHub Actions build + release workflow
 
 **Files:**
+
 - Create: `.github/workflows/release.yml`
 - Create: `scripts/release-notes.cjs`
 
@@ -1044,7 +1120,12 @@ const lines = fs.readFileSync('RELEASE_NOTES.md', 'utf8').split(/\r?\n/);
 const start = lines.findIndex((line) => line.startsWith(`## ${version} `));
 if (start < 0) throw new Error(`RELEASE_NOTES.md has no section for ${version}.`);
 const end = lines.findIndex((line, index) => index > start && line.startsWith('## '));
-process.stdout.write(lines.slice(start + 1, end < 0 ? undefined : end).join('\n').trim() + '\n');
+process.stdout.write(
+  lines
+    .slice(start + 1, end < 0 ? undefined : end)
+    .join('\n')
+    .trim() + '\n',
+);
 ```
 
 - [ ] **Step 2: `.github/workflows/release.yml`**
