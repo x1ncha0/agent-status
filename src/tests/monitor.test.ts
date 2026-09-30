@@ -91,17 +91,22 @@ test('antigravity: invocations are working, Stop is ready, never red', () => {
     [store.snapshot().status, store.snapshot().reason],
     ['working', 'Đang suy nghĩ / làm việc'],
   );
-  send('Stop', { source: 'model_stop' });
+  send('Stop', { source: 'NO_TOOL_CALL' });
   assert.deepEqual(
     [store.snapshot().status, store.snapshot().reason],
     ['available', 'Đã hoàn thành, sẵn sàng nhận yêu cầu mới'],
   );
   assert.equal(store.snapshot().observed, true, 'Antigravity has no SessionEnd');
-  send('Stop', { source: 'error' });
-  assert.deepEqual(
-    [store.snapshot().status, store.snapshot().reason],
-    ['available', 'Đã dừng do lỗi'],
-  );
+  // Real values are enum names; the embedded docs show lowercase ones.
+  for (const [source, reason] of [
+    ['ERROR', 'Đã dừng do lỗi'],
+    ['error', 'Đã dừng do lỗi'],
+    ['USER_CANCELED', 'Đã huỷ'],
+    ['MAX_INVOCATIONS', 'Đã dừng vì chạm giới hạn bước'],
+  ]) {
+    send('Stop', { source });
+    assert.deepEqual([store.snapshot().status, store.snapshot().reason], ['available', reason]);
+  }
   for (const name of [
     'PostToolUse',
     'PreToolUse',
