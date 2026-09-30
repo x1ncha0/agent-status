@@ -1,3 +1,5 @@
+import { defaultDataDir, isMac, isWindows } from '../common/platform';
+import { createMacBackend } from './integration-mac';
 import { app, ipcMain, shell, Tray } from 'electron';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
@@ -7,14 +9,12 @@ import { trayTooltip } from './tray-tooltip';
 import { FileMonitor } from '../monitor/file-monitor';
 import { classifyClaude } from '../monitor/claude';
 import { classifyCodex } from '../monitor/codex';
-import { createWindowsBackend } from './integration-backend';
+import { createWindowsBackend, type SetupPaths } from './integration-backend';
 import { createIntegrationSetup } from './integration';
 import { createAttentionNotifier } from './attention';
 import { cleanupPreviousUpdate, createUpdater } from './updater';
 
-const dataDir =
-  process.env.AGENT_STATUS_DATA_DIR ||
-  path.join(process.env.LOCALAPPDATA || app.getPath('userData'), 'AgentStatus');
+const dataDir = defaultDataDir(process.platform, process.env, app.getPath('appData'));
 mkdirSync(dataDir, { recursive: true });
 app.setPath('userData', path.join(dataDir, 'electron'));
 let tray: Tray;
@@ -26,7 +26,7 @@ else
       new FileMonitor(path.join(dataDir, 'events/codex'), 'codex', classifyCodex),
     ];
     const win = createWindow(dataDir);
-    const setupPaths = {
+    const setupPaths: SetupPaths = {
       dataDir,
       integrationDir: path.join(
         app.isPackaged ? process.resourcesPath : path.join(__dirname, '../..'),
@@ -41,7 +41,11 @@ else
     const setup = createIntegrationSetup(
       win,
       dataDir,
-      process.platform === 'win32' ? createWindowsBackend(setupPaths) : undefined,
+      isWindows
+        ? createWindowsBackend(setupPaths)
+        : isMac
+          ? createMacBackend(setupPaths)
+          : undefined,
     );
     const snapshot = () => monitors.map((monitor) => monitor.snapshot());
     ipcMain.handle('status:get', snapshot);

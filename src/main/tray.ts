@@ -1,3 +1,4 @@
+import { isMac, isWindows } from '../common/platform';
 import { app, BrowserWindow, Menu, nativeImage, Tray } from 'electron';
 import path from 'node:path';
 
@@ -9,9 +10,12 @@ export function createTray(
   hasAgents: () => boolean,
 ): { tray: Tray; refresh: () => void } {
   const iconFile = path.join(app.getAppPath(), 'assets/icon.png');
-  const tray = new Tray(nativeImage.createFromPath(iconFile).resize({ width: 16, height: 16 }));
+  const size = isMac ? 18 : 16;
+  const tray = new Tray(nativeImage.createFromPath(iconFile).resize({ width: size, height: size }));
   tray.setToolTip('Agent Status');
   const executable = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+  const loginItem = () =>
+    isMac ? app.getLoginItemSettings() : app.getLoginItemSettings({ path: executable });
   const toggle = () => {
     if (win.isVisible()) win.hide();
     else show();
@@ -28,12 +32,16 @@ export function createTray(
         { label: 'Thiết lập kết nối…', click: setup },
         { label: 'Kiểm tra cập nhật', click: update },
         {
-          label: 'Start with Windows',
+          label: isMac ? 'Start at login' : 'Start with Windows',
           type: 'checkbox',
-          enabled: app.isPackaged && process.platform === 'win32',
-          checked: app.isPackaged && app.getLoginItemSettings({ path: executable }).openAtLogin,
+          enabled: app.isPackaged && (isWindows || isMac),
+          checked: app.isPackaged && loginItem().openAtLogin,
           click: (item) =>
-            app.setLoginItemSettings({ openAtLogin: item.checked, path: executable, args: [] }),
+            app.setLoginItemSettings(
+              isMac
+                ? { openAtLogin: item.checked }
+                : { openAtLogin: item.checked, path: executable, args: [] },
+            ),
         },
         { type: 'separator' },
         { label: 'Exit', click: () => app.quit() },
