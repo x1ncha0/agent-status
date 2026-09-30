@@ -214,3 +214,81 @@ test('JXA writer finds the owning CLI process and its start time', macOnly, asyn
   assert.ok(Math.abs(record.owner_started_at - Date.now()) < 60000);
   assert.equal(record.owner_started_at % 1000, 0);
 });
+
+const antigravity = (dataDir: string, input: string, ...event: string[]) =>
+  spawnSync('/usr/bin/osascript', ['-l', 'JavaScript', writer, 'antigravity', dataDir, ...event], {
+    input,
+    encoding: 'utf8',
+  });
+
+test('JXA writer maps an Antigravity payload and prints {}', macOnly, async () => {
+  const { paths } = await setup();
+  const result = antigravity(
+    paths.dataDir,
+    JSON.stringify({
+      conversationId: 'conv-1',
+      workspacePaths: ['/SECRET/workspace'],
+      transcriptPath: '/SECRET/transcript.jsonl',
+      terminationReason: 'model_stop',
+      fullyIdle: true,
+    }),
+    'Stop',
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout, '{}');
+  const dir = path.join(paths.dataDir, 'events', 'antigravity');
+  const files = await readdir(dir);
+  assert.equal(files.length, 1);
+  const text = await readFile(path.join(dir, files[0]), 'utf8');
+  assert.doesNotMatch(text, /SECRET/);
+  const { timestamp, ...record } = JSON.parse(text);
+  assert.deepEqual(record, {
+    agent: 'antigravity',
+    session_id: 'conv-1',
+    hook_event_name: 'Stop',
+    source: 'model_stop',
+  });
+  assert.ok(Math.abs(timestamp - Date.now()) < 60000);
+});
+
+test('JXA writer prints {} and records nothing for bad Antigravity input', macOnly, async () => {
+  const { paths } = await setup();
+  const valid = JSON.stringify({ conversationId: 'conv-1' });
+  for (const [input, event] of [
+    ['not json', 'PreInvocation'],
+    ['{}', 'PreInvocation'],
+    [valid, 'PreToolUse'],
+    [valid, undefined],
+  ] as const) {
+    const result = antigravity(paths.dataDir, input, ...(event ? [event] : []));
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout, '{}', `${input} ${event}`);
+  }
+  await assert.rejects(readdir(path.join(paths.dataDir, 'events')), /ENOENT/);
+});
+
+test('JXA writer finds the Antigravity language server owner', macOnly, async () => {
+  const { paths } = await setup();
+  // The IDE's server lives under "Antigravity IDE.app", a path with a space.
+  const bin = path.join(
+    await mkdtemp(path.join(tmpdir(), 'agent-status-agy-')),
+    'Antigravity IDE.app',
+    'bin',
+  );
+  await mkdir(bin, { recursive: true });
+  const server = path.join(bin, 'language_server_macos_arm');
+  await symlink('/bin/bash', server);
+  const quote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+  const script = `/usr/bin/osascript -l JavaScript ${quote(writer)} antigravity ${quote(paths.dataDir)} PreInvocation; echo; echo "PID=$$"; true`;
+  const result = spawnSync(server, ['-c', script], {
+    input: JSON.stringify({ conversationId: 'conv-1' }),
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stdout.split('\n')[0], '{}');
+  const pid = Number(/PID=(\d+)/.exec(result.stdout)?.[1]);
+  const dir = path.join(paths.dataDir, 'events', 'antigravity');
+  const record = JSON.parse(await readFile(path.join(dir, (await readdir(dir))[0]), 'utf8'));
+  assert.equal(record.hook_event_name, 'PreInvocation');
+  assert.equal(record.owner_pid, pid);
+});
