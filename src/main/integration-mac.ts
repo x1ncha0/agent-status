@@ -5,6 +5,7 @@ import type { Agent } from '../monitor/status';
 import type { Installation, IntegrationBackend, SetupPaths } from './integration-backend';
 
 export const MAC_WRITER = 'write-agent-event.js';
+type CliAgent = Exclude<Agent, 'antigravity'>;
 const COMMON = [
   'SessionStart',
   'SessionEnd',
@@ -16,7 +17,7 @@ const COMMON = [
   'PostCompact',
   'Stop',
 ];
-const EVENTS: Record<Agent, string[]> = {
+const EVENTS: Record<CliAgent, string[]> = {
   claude: [
     ...COMMON,
     'PostToolUseFailure',
@@ -67,7 +68,7 @@ async function readSettings(file: string): Promise<Settings> {
 }
 
 /** Same merge rules as Install-Hooks.ps1: drop our handlers, keep every other hook, append ours. */
-function merge(settings: Settings, agent: Agent, command: string) {
+function merge(settings: Settings, agent: CliAgent, command: string) {
   const hooks = { ...(settings.hooks ?? {}) };
   let configured = true;
   for (const name of EVENTS[agent]) {
@@ -98,14 +99,14 @@ const sha256 = async (file: string) =>
 export function createMacBackend(paths: SetupPaths): IntegrationBackend {
   const bundled = path.join(paths.integrationDir, 'mac', MAC_WRITER);
   const installed = path.join(paths.dataDir, MAC_WRITER);
-  const targets: Record<Agent, string> = {
+  const targets: Record<CliAgent, string> = {
     claude: path.join(paths.claudeHome, 'settings.json'),
     codex: path.join(paths.codexHome, 'hooks.json'),
   };
   // Every file is parsed before anything is written, so a bad file aborts the whole install.
   const plan = async () =>
     Promise.all(
-      (['claude', 'codex'] as Agent[]).map(async (agent) => ({
+      (['claude', 'codex'] as CliAgent[]).map(async (agent) => ({
         agent,
         target: targets[agent],
         ...merge(await readSettings(targets[agent]), agent, macHookCommand(agent, paths.dataDir)),

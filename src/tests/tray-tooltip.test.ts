@@ -14,11 +14,18 @@ const state = (extra: Partial<AgentState>): AgentState => ({
 test('tray tooltip lists running agents and source errors', () => {
   assert.equal(
     trayTooltip([state({ status: 'working' }), state({ agent: 'codex', status: 'stuck' })]),
-    'claude: Đang suy nghĩ / làm việc\ncodex: Cần bạn can thiệp',
+    'Claude: Đang suy nghĩ / làm việc\nCodex: Cần bạn can thiệp',
   );
   assert.equal(
     trayTooltip([state({ observed: false, error: 'EPERM' }), state({ agent: 'codex' })]),
-    'claude: lỗi — EPERM\ncodex: Sẵn sàng',
+    'Claude: lỗi — EPERM\nCodex: Sẵn sàng',
+  );
+});
+
+test('tray tooltip names Antigravity', () => {
+  assert.equal(
+    trayTooltip([state({ agent: 'antigravity', status: 'working' })]),
+    'Antigravity: Đang suy nghĩ / làm việc',
   );
 });
 

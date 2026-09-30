@@ -1,4 +1,9 @@
-export type Agent = 'claude' | 'codex';
+export type Agent = 'claude' | 'codex' | 'antigravity';
+export const AGENT_NAMES: Record<Agent, string> = {
+  claude: 'Claude',
+  codex: 'Codex',
+  antigravity: 'Antigravity',
+};
 type Status = 'available' | 'working' | 'stuck';
 export interface AgentState {
   agent: Agent;

@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process';
 import { OWNERLESS_TTL_MS, StatusStore, type Agent, type HookEvent } from '../monitor/status';
 import { classifyClaude } from '../monitor/claude';
 import { classifyCodex } from '../monitor/codex';
+import { classifyAntigravity } from '../monitor/antigravity';
 import { FileMonitor, parseEvent } from '../monitor/file-monitor';
 import { createOwnerProbe, isRunning } from '../monitor/process-owner';
 
@@ -71,6 +72,35 @@ test('input, compaction and interruption', () => {
   assert.equal(classifyCodex(event('Interrupt'))?.status, 'available');
   assert.equal(classifyCodex(event('SessionStart', { source: 'compact' }))?.status, 'working');
 });
+test('antigravity: invocations and tools are working, Stop is ready, never red', () => {
+  const store = new StatusStore('antigravity', classifyAntigravity);
+  const send = (name: string, extra: Partial<HookEvent> = {}) =>
+    store.accept(event(name, { agent: 'antigravity', ...extra }));
+  assert.equal(store.snapshot().observed, false);
+  send('PreInvocation');
+  assert.deepEqual(
+    [store.snapshot().status, store.snapshot().reason],
+    ['working', 'Đang suy nghĩ'],
+  );
+  send('PostToolUse');
+  assert.deepEqual(
+    [store.snapshot().status, store.snapshot().reason],
+    ['working', 'Đang chạy tool'],
+  );
+  send('Stop', { source: 'model_stop' });
+  assert.deepEqual(
+    [store.snapshot().status, store.snapshot().reason],
+    ['available', 'Đã hoàn thành, sẵn sàng nhận yêu cầu mới'],
+  );
+  assert.equal(store.snapshot().observed, true, 'Antigravity has no SessionEnd');
+  send('Stop', { source: 'error' });
+  assert.deepEqual(
+    [store.snapshot().status, store.snapshot().reason],
+    ['available', 'Đã dừng do lỗi'],
+  );
+  for (const name of ['PreToolUse', 'PermissionRequest', 'SessionEnd', 'Notification'])
+    assert.equal(classifyAntigravity(event(name, { agent: 'antigravity' })), undefined, name);
+});
 test('multiple sessions, stale events and recovery', () => {
   const store = new StatusStore('claude', classifyClaude);
   store.accept(event('PermissionRequest', { timestamp: 1000 }));
@@ -125,6 +155,7 @@ test('event validation', () => {
   assert.equal(parseEvent(null), undefined);
   assert.equal(parseEvent(event('Stop', { timestamp: NaN })), undefined);
   assert.equal(parseEvent({ ...event('Stop'), agent: 'unknown' }), undefined);
+  assert.equal(parseEvent(event('Stop', { agent: 'antigravity' }))?.agent, 'antigravity');
   assert.equal(parseEvent(event('Stop', { session_id: '' })), undefined);
   assert.equal(parseEvent(event('Stop', { owner_pid: -1, owner_started_at: 1000 })), undefined);
   assert.equal(parseEvent(event('Stop', { owner_pid: 1 })), undefined);
