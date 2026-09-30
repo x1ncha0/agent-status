@@ -60,12 +60,16 @@ app.whenReady().then(async () => {
     assert.equal(setupDialogs[0].message, 'Kết nối với Claude Code và Codex');
     await assert.rejects(fs.access(path.join(root, 'claude/settings.json')));
     await assert.rejects(fs.access(path.join(root, 'codex/hooks.json')));
-    const setup = require('../dist/main/integration.js').createIntegrationSetup(win, {
-      dataDir: root,
-      integrationDir: path.resolve('integration'),
-      claudeHome: process.env.AGENT_STATUS_CLAUDE_HOME,
-      codexHome: process.env.AGENT_STATUS_CODEX_HOME,
-    });
+    const setup = require('../dist/main/integration.js').createIntegrationSetup(
+      win,
+      root,
+      require('../dist/main/integration-backend.js').createWindowsBackend({
+        dataDir: root,
+        integrationDir: path.resolve('integration'),
+        claudeHome: process.env.AGENT_STATUS_CLAUDE_HOME,
+        codexHome: process.env.AGENT_STATUS_CODEX_HOME,
+      }),
+    );
     await setup.checkOnStartup();
     assert.equal(setupDialogs.length, 1, 'Deferred setup does not repeat at startup');
     await setup.show();
