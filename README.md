@@ -3,10 +3,11 @@
 [![Release](https://img.shields.io/github/v/release/x1ncha0/agent-status?label=latest&color=2ea44f)](https://github.com/x1ncha0/agent-status/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/x1ncha0/agent-status/total?color=blue)](https://github.com/x1ncha0/agent-status/releases)
 [![Windows](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078d4?logo=windows&logoColor=white)](#giới-hạn)
+[![macOS](<https://img.shields.io/badge/platform-macOS%2012%2B%20(Apple%20Silicon%20%2F%20Intel)-000000?logo=apple&logoColor=white>)](#giới-hạn)
 
-Agent Status là tiện ích Windows hiển thị trạng thái **Claude Code** và **Codex CLI** trong một cửa sổ nhỏ, luôn nổi và không chiếm Taskbar.
+Agent Status là tiện ích cho Windows và macOS hiển thị trạng thái **Claude Code** và **Codex CLI** trong một cửa sổ nhỏ, luôn nổi và không chiếm Taskbar.
 
-Cửa sổ có thể kéo và thay đổi kích thước (tối thiểu `90 × 45` DIP). Kích thước và vị trí được lưu lại. Menu khay hệ thống có các tùy chọn Show/Hide, cài đặt integration, kiểm tra cập nhật, Start with Windows và Exit.
+Cửa sổ có thể kéo và thay đổi kích thước (tối thiểu `90 × 45` DIP). Kích thước và vị trí được lưu lại. Menu khay hệ thống có các tùy chọn Show/Hide, cài đặt integration, kiểm tra cập nhật, Start with Windows / Start at login và Exit.
 
 ## Trạng thái
 
@@ -25,10 +26,22 @@ Nếu chọn **Hide** thủ công, cửa sổ giữ ẩn trong lúc các phiên 
 ## Tải về
 
 [![Download AgentStatus.exe](https://img.shields.io/badge/Download-AgentStatus.exe-2ea44f?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/x1ncha0/agent-status/releases/latest/download/AgentStatus.exe)
+[![Download Apple Silicon](https://img.shields.io/badge/Download-macOS%20Apple%20Silicon-2ea44f?style=for-the-badge&logo=apple)](https://github.com/x1ncha0/agent-status/releases/latest/download/AgentStatus-mac-arm64.dmg)
+[![Download Intel](https://img.shields.io/badge/Download-macOS%20Intel-2ea44f?style=for-the-badge&logo=apple)](https://github.com/x1ncha0/agent-status/releases/latest/download/AgentStatus-mac-x64.dmg)
 
-Bản phát hành là file portable, không cần cài đặt hoặc Node.js. Chạy `AgentStatus.exe`; lần đầu mở app, chọn **Cài đặt kết nối** nếu integration chưa được cài.
+Bản Windows là file portable, không cần cài đặt hoặc Node.js. Chạy `AgentStatus.exe`; lần đầu mở app, chọn **Cài đặt kết nối** nếu integration chưa được cài.
 
 Codex có thể yêu cầu Review/Trust hook trong `/hooks`. Sau khi xác nhận, hãy mở một phiên CLI mới.
+
+### Mở lần đầu trên macOS
+
+Mở file `.dmg` đúng chip và kéo **Agent Status** vào Applications. App chưa được ký bởi Apple nên lần đầu chuột phải → **Open** → **Open**, hoặc chạy:
+
+```sh
+xattr -dr com.apple.quarantine "/Applications/Agent Status.app"
+```
+
+Icon nằm trên menu bar, không có icon Dock. Dữ liệu ở `~/Library/Application Support/AgentStatus`. Lần đầu mở app, chọn **Cài đặt kết nối**; Codex cần Review/Trust hook trong `/hooks` rồi mở phiên CLI mới.
 
 ## Cài đặt hoặc cập nhật integration
 
@@ -40,14 +53,16 @@ Sau khi cập nhật Agent Status, hãy cập nhật integration và mở phiên
 
 Chọn **Kiểm tra cập nhật** trong menu khay hệ thống. Kết quả hiện trong popup nhỏ ở góc dưới bên phải màn hình thay vì hộp thoại giữa màn hình: đang kiểm tra, đã dùng bản mới nhất (tự đóng sau vài giây), có bản mới, hoặc không kết nối được GitHub (có nút **Thử lại**).
 
-Khi có bản mới, chọn **Tải bản cập nhật**: app tự tải `AgentStatus.exe` kèm progress bar (có thể **Huỷ**), đối chiếu SHA256 của bản phát hành, đổi bản đang chạy thành `AgentStatus.old.exe`, đưa bản mới vào đúng chỗ rồi tự khởi động lại. File `.old.exe` được xoá ở lần mở kế tiếp; checksum lệch thì bản đang chạy được giữ nguyên.
+Trên Windows, khi có bản mới, chọn **Tải bản cập nhật**: app tự tải `AgentStatus.exe` kèm progress bar (có thể **Huỷ**), đối chiếu SHA256 của bản phát hành, đổi bản đang chạy thành `AgentStatus.old.exe`, đưa bản mới vào đúng chỗ rồi tự khởi động lại. File `.old.exe` được xoá ở lần mở kế tiếp; checksum lệch thì bản đang chạy được giữ nguyên.
 
 Nếu thư mục chứa `.exe` không cho ghi, file tải về được lưu vào Downloads và popup hiện nút **Mở thư mục** để bạn thay thủ công.
 
+Trên macOS, app tải `.dmg` đúng chip vào Downloads và kiểm SHA256. Chọn **Mở thư mục** để mở Finder; thoát Agent Status, mở `.dmg` rồi kéo app vào Applications để thay bản cũ.
+
 ## Giới hạn
 
-- Chỉ hỗ trợ CLI native trên Windows với hook đã được cài và trust. WSL, remote/cloud và client Desktop/IDE chưa được kiểm chứng.
+- Hỗ trợ CLI chạy trực tiếp trên Windows và macOS với hook đã được cài và trust. WSL, remote/cloud và client Desktop/IDE chưa được kiểm chứng.
 - App không lưu prompt, arguments, tool output hoặc transcript; chỉ lưu metadata cần để hiển thị trạng thái.
-- Executable chưa được code-sign.
+- Bản Windows và macOS chưa được code-sign / notarize.
 
 Xem thêm [release notes](RELEASE_NOTES.md).

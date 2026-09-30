@@ -1,5 +1,12 @@
 # Agent Status — Release notes
 
+## 1.2.0 — 30/09/2026
+
+- Có bản macOS (Apple Silicon và Intel, macOS 12 trở lên): icon trên menu bar, cửa sổ nổi trên mọi Space kể cả app toàn màn hình, không có icon Dock. Thiết lập kết nối cài hook cho Claude Code và Codex bằng bộ ghi trạng thái dùng `osascript` có sẵn của macOS, không cần Node hay Python.
+- Kiểm tra cập nhật trên macOS tải `.dmg` đúng chip vào Downloads, đối chiếu SHA256 rồi mở Finder để bạn thay app.
+- Menu khay có **Start at login** trên macOS.
+- Bản phát hành được build và đăng tự động bằng GitHub Actions cho cả Windows và macOS, kèm file SHA256 cho từng bản.
+
 ## 1.1.1 — 29/09/2026
 
 - Cửa sổ tự ẩn trong khoảng 0,5 giây sau khi đóng terminal hoặc tắt CLI (trước đây 2,5–3,5 giây). App kiểm tra tiến trình còn sống mà không phải mở PowerShell mỗi lần; PowerShell chỉ còn dùng một lần cho mỗi phiên để xác minh thời điểm khởi động.
