@@ -61,7 +61,7 @@ Trên Windows, khi có bản mới, chọn **Tải bản cập nhật**: app t�
 
 Nếu thư mục chứa `.exe` không cho ghi, file tải về được lưu vào Downloads và popup hiện nút **Mở thư mục** để bạn thay thủ công.
 
-Trên macOS, app tải `.dmg` đúng chip vào Downloads và kiểm SHA256. Chọn **Mở thư mục** để mở Finder; thoát Agent Status, mở `.dmg` rồi kéo app vào Applications để thay bản cũ.
+Trên macOS, khi có bản mới, chọn **Tải bản cập nhật**: app tự tải `.dmg` đúng chip, kiểm SHA256, thay bản trong thư mục đang chứa app (thường là Applications) rồi tự mở lại. Nếu không thay được (thư mục không ghi được, app đang chạy từ `.dmg` hoặc chưa được kéo vào Applications), file được lưu vào Downloads và popup hiện nút **Mở thư mục** để bạn thay thủ công. Tính năng này có từ 1.3.0; lần lên 1.3.0 vẫn phải thay tay.
 
 ## Giới hạn
 

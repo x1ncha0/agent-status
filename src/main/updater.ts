@@ -1,7 +1,7 @@
 import { app, BrowserWindow, shell } from 'electron';
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { access, constants, rename, rm } from 'node:fs/promises';
+import { access, constants, copyFile, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -14,6 +14,7 @@ import {
   pickAsset,
   type Release,
 } from './update-release';
+import { macBundlePath, stageFromDmg, startSwap } from './update-mac';
 import { createUpdatePopup, type UpdateAction, type UpdateView } from './update-window';
 
 const RELEASES_API = 'https://api.github.com/repos/x1ncha0/agent-status/releases/latest';
@@ -26,6 +27,8 @@ const portableExe = () =>
   process.platform === 'win32' && app.isPackaged
     ? process.env.PORTABLE_EXECUTABLE_FILE || undefined
     : undefined;
+const macBundle = () =>
+  process.platform === 'darwin' && app.isPackaged ? macBundlePath(process.execPath) : undefined;
 const sibling = (exe: string, suffix: string) => exe.replace(/\.exe$/i, suffix);
 const reason = (error: unknown) => (error as Error)?.message || String(error);
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -43,11 +46,24 @@ export async function cleanupPreviousUpdate(): Promise<void> {
   }
 }
 
-/** Ghi cạnh exe đang chạy để thay thế được; thư mục chỉ đọc thì rơi về Downloads. */
+const downloadsFile = (version: string, asset: string) =>
+  path.join(app.getPath('downloads'), asset.replace(/^AgentStatus/, `AgentStatus-${version}`));
+
+/** Ghi cạnh exe đang chạy (Windows) hoặc vào temp để tự thay app (mac); không ghi được thì rơi về Downloads. */
 async function chooseTarget(
   version: string,
   asset: string,
-): Promise<{ file: string; swap?: string }> {
+): Promise<{ file: string; swap?: string; bundle?: string }> {
+  const bundle = macBundle();
+  if (bundle) {
+    try {
+      await access(path.dirname(bundle), constants.W_OK);
+      await access(bundle, constants.W_OK);
+      return { file: path.join(app.getPath('temp'), `AgentStatus-${version}-update.dmg`), bundle };
+    } catch {
+      /* Thư mục chứa app không ghi được. */
+    }
+  }
   const exe = portableExe();
   if (exe) {
     try {
@@ -57,12 +73,7 @@ async function chooseTarget(
       /* Thư mục exe không ghi được. */
     }
   }
-  return {
-    file: path.join(
-      app.getPath('downloads'),
-      asset.replace(/^AgentStatus/, `AgentStatus-${version}`),
-    ),
-  };
+  return { file: downloadsFile(version, asset) };
 }
 
 async function download(
@@ -167,7 +178,7 @@ export function createUpdater(win: BrowserWindow) {
   const start = async () => {
     if (busy || !release) return;
     if (!ASSET) {
-      render({ phase: 'error', message: 'Ch?a c? b?n c?p nh?t t? ??ng cho h? ?i?u h?nh n?y.' });
+      render({ phase: 'error', message: 'Chưa có bản cập nhật tự động cho hệ điều hành này.' });
       return;
     }
     const asset = pickAsset(release.assets, ASSET);
@@ -197,6 +208,27 @@ export function createUpdater(win: BrowserWindow) {
         await wait(INSTALL_DELAY_MS);
         await install(target.file, target.swap);
         return;
+      }
+      if (target.bundle) {
+        render({ phase: 'installing' });
+        try {
+          const staged = await stageFromDmg(target.file, target.bundle, release.version);
+          await rm(target.file, { force: true });
+          startSwap(process.pid, target.bundle, staged);
+          app.quit();
+          return;
+        } catch (error) {
+          // Không tự thay được thì giữ file để thay tay như trước.
+          console.error('Update install failed:', error);
+          saved = downloadsFile(release.version, ASSET);
+          await copyFile(target.file, saved);
+          await rm(target.file, { force: true });
+          render({
+            phase: 'downloaded',
+            message: `Không tự cài được (${reason(error)}). Đã lưu ${path.basename(saved)} vào Downloads. Thoát app, mở file này rồi kéo app vào Applications.`,
+          });
+          return;
+        }
       }
       saved = target.file;
       render({

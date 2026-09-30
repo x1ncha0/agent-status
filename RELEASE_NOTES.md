@@ -1,9 +1,10 @@
 # Agent Status — Release notes
 
-## Chưa phát hành
+## 1.3.0 — 30/09/2026
 
 - Theo dõi thêm **Antigravity** (Antigravity 2.0 và Antigravity IDE) trên Windows và macOS: đèn vàng khi agent đang suy nghĩ hoặc chạy tool, xanh khi đã dừng. Antigravity không có đèn đỏ vì không báo lúc đang chờ bạn duyệt. Đèn tự ẩn khi thoát Antigravity.
-- Thiết lập kết nối thêm một mục `agent-status` vào `~/.gemini/config/hooks.json` (chỉ khi máy đã có `~/.gemini`), giữ nguyên các hook khác và sao lưu file cũ. Hook chỉ báo trạng thái, không đổi quyền hay hành vi của agent.
+- Thiết lập kết nối thêm một mục `agent-status` vào `~/.gemini/config/hooks.json` (chỉ khi máy đã chạy Antigravity: có `~/.gemini/antigravity` hoặc `~/.gemini/antigravity-ide`), giữ nguyên các hook khác và sao lưu file cũ. Hook chỉ báo trạng thái, không đổi quyền hay hành vi của agent.
+- Cập nhật trên macOS tự thay app và mở lại bản mới, giống Windows: tải `.dmg`, kiểm SHA256, thay app trong thư mục đang chứa nó rồi khởi động lại. Không thay được thì lưu vào Downloads như trước. Có hiệu lực từ các bản sau 1.3.0; lần lên 1.3.0 vẫn phải thay tay.
 - Cửa sổ mới mở lần đầu rộng 165 DIP để đủ chỗ cho ba đèn; kích thước đã lưu giữ nguyên. Tooltip khay hiện tên agent (Claude, Codex, Antigravity).
 
 ## 1.2.1 — 30/09/2026
