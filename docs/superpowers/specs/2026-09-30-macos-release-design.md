@@ -57,7 +57,7 @@ Hành vi (tương đương `Write-AgentEvent.ps1`):
 3. Thiếu `session_id` hoặc `hook_event_name` thì thoát. Chỉ copy các field ở trên dưới dạng string. **Không ghi** prompt, `tool_input` hay `tool_response`.
 4. Tìm owner: gọi **một lần** `/bin/ps -A -o pid=,ppid=,lstart=,args=` (env `LC_ALL=C`) qua `$.NSTask`, dựng map pid → {ppid, lstart, args}. Đi từ pid của chính `osascript` (`$.NSProcessInfo.processInfo.processIdentifier`) lên tối đa 8 cấp:
    - Tiến trình khớp khi basename của token đầu `args` bằng `agent`. Với `claude`: khớp thêm nếu `args` chứa `claude-code` (bản cài qua npm chạy bằng `node`) hoặc chứa `/claude/versions/` (bản native dạng symlink).
-   - Khi khớp: `owner_pid = pid`, `owner_started_at = Date.parse(lstart)` tính bằng ms (lstart có độ chính xác đến giây).
+   - Khi khớp: `owner_pid = pid`, `owner_started_at` = epoch ms của `lstart`, parse tường minh bằng regex `^\w{3} (\w{3}) +(\d{1,2}) (\d\d):(\d\d):(\d\d) (\d{4})$` (tên tháng tiếng Anh, `new Date(y, m, d, h, mi, s)` theo giờ local, ngày một chữ số có hai dấu cách). Không dùng `Date.parse`. Độ chính xác đến giây.
    - Có lỗi thì bỏ qua owner, vẫn ghi event.
 5. Tạo `<dataDir>/events/<agent>/` nếu chưa có. Ghi `<uuid>.tmp` rồi `moveItemAtPath` sang `<uuid>.json` (UUID lấy từ `$.NSUUID`).
 6. Mọi lỗi bị nuốt. `run` không return giá trị nào nên stdout **trống** (Claude đưa stdout của một số hook vào context). Exit code luôn là 0.
@@ -80,7 +80,7 @@ Là hàm thuần nhận `{ dataDir, integrationDir, claudeHome, codexHome }` và
 ## Process owner: `src/monitor/process-owner.ts`
 
 - `processStartTime` trên mac: `execFile('/bin/ps', ['-o', 'lstart=', '-p', pid], { env: { ...process.env, LC_ALL: 'C' } })`. Output rỗng thì trả 0.
-- Tách hàm thuần `parseLstart(text): number` (vd. `Tue Sep 30 10:11:12 2026` → epoch ms theo giờ local, `NaN`/rỗng → 0) để test chạy được trên mọi OS.
+- Tách hàm thuần `parseLstart(text): number` dùng đúng regex và quy tắc như writer (vd. `Tue Sep 30 10:11:12 2026`, `Wed Oct  1 09:00:00 2026` → epoch ms theo giờ local; không khớp hoặc rỗng → 0), để test chạy được trên mọi OS.
 
 ## Cửa sổ, tray, mở cùng hệ thống (mac)
 
@@ -132,7 +132,7 @@ Trigger: `push` tag `v*`, `pull_request`, `workflow_dispatch`.
 
 - Test hiện có dùng `powershell.exe` hoặc `HookOwner.cs` được đánh dấu `{ skip: process.platform !== 'win32' }`, để `npm test` pass trên mac.
 - Unit test mới (chạy mọi OS): `parseLstart`, `defaultDataDir`, `updateAsset`, installer mac trên thư mục tạm (cài mới; giữ hook khác; cài lại idempotent; bỏ handler cũ khi đường dẫn đổi; JSON lỗi → throw, file không đổi; `check` trước/sau `apply`; tạo `.bak`).
-- Test chỉ chạy trên darwin: gọi `/usr/bin/osascript -l JavaScript integration/mac/write-agent-event.js claude <tmp>` với stdin là payload mẫu có `null`, có `tool_input` lớn và có prompt. Assert: exit 0, stdout rỗng, đúng một file `.json`, field đúng, không chứa prompt hay `tool_input`. Payload thiếu `session_id` thì không có file. Test owner: chạy writer qua một wrapper tên `claude` (symlink `/bin/sh` đặt tên `claude` trong thư mục tạm, chạy `-c`) và assert `owner_pid` là pid của wrapper, `owner_started_at` bằng `parseLstart` của nó.
+- Test chỉ chạy trên darwin: gọi `/usr/bin/osascript -l JavaScript integration/mac/write-agent-event.js claude <tmp>` với stdin là payload mẫu có `null`, có `tool_input` lớn và có prompt. Assert: exit 0, stdout rỗng, đúng một file `.json`, field đúng, không chứa prompt hay `tool_input`. Payload thiếu `session_id` thì không có file. Test owner: chạy writer qua một wrapper tên `claude` (symlink `/bin/sh` đặt tên `claude` trong thư mục tạm, chạy `-c '<osascript …>; true'`: có lệnh `true` ở cuối để sh không `exec` thay thế chính nó) và assert `owner_pid` là pid của wrapper, `owner_started_at` bằng `parseLstart` của nó.
 - CI mac là nơi kiểm chứng duy nhất cho phần darwin. Chạy thử bằng tay trên Mac thật (mở `.dmg`, cài hook, chạy claude) là việc của người phát hành trước khi công bố.
 
 ## Ngoài phạm vi
