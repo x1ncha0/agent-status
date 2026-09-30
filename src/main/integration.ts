@@ -1,65 +1,30 @@
 import { BrowserWindow, dialog } from 'electron';
-import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { promisify } from 'node:util';
-import { POWERSHELL } from '../common/powershell';
-import type { Agent } from '../monitor/status';
 
-interface Installation {
-  needsInstall: boolean;
-  writerCurrent: boolean;
-  agents: { agent: Agent; configured: boolean }[];
-}
-interface SetupPaths {
-  dataDir: string;
-  integrationDir: string;
-  claudeHome: string;
-  codexHome: string;
-}
-const execute = promisify(execFile);
-const nextSteps =
+import type { IntegrationBackend } from './integration-backend';
+
+const nextSteps = (writer: string) =>
   'Claude Code: mở lại CLI rồi gửi một yêu cầu.\n\n' +
-  'Codex: mở terminal mới, chạy codex, vào /hooks để Review / Trust các hook gọi Write-AgentEvent.ps1, rồi gửi một yêu cầu. Phiên đã mở trước khi cài có thể chưa nhận cấu hình mới.';
+  `Codex: mở terminal mới, chạy codex, vào /hooks để Review / Trust các hook gọi ${writer}, rồi gửi một yêu cầu. Phiên đã mở trước khi cài có thể chưa nhận cấu hình mới.`;
 
-export function createIntegrationSetup(win: BrowserWindow, paths: SetupPaths) {
+export function createIntegrationSetup(
+  win: BrowserWindow,
+  dataDir: string,
+  backend: IntegrationBackend | undefined,
+) {
   let busy = false;
-  const preferenceFile = path.join(paths.dataDir, 'setup.json');
-  const installer = path.join(paths.integrationDir, 'Install-Hooks.ps1');
-  const run = async (mode: '-Check' | '-Apply') =>
-    execute(
-      POWERSHELL,
-      [
-        '-NoProfile',
-        '-NonInteractive',
-        '-File',
-        installer,
-        mode,
-        '-DataDir',
-        paths.dataDir,
-        '-ClaudeHome',
-        paths.claudeHome,
-        '-CodexHome',
-        paths.codexHome,
-      ],
-      { windowsHide: true, timeout: 20000, maxBuffer: 1024 * 1024 },
-    );
-  const check = async () => {
-    const { stdout } = await run('-Check');
-    return JSON.parse(stdout) as Installation;
-  };
+  const preferenceFile = path.join(dataDir, 'setup.json');
   const show = async (automatic = false) => {
-    if (busy || win.isDestroyed() || process.platform !== 'win32') return;
+    if (busy || win.isDestroyed() || !backend) return;
     busy = true;
     try {
-      const current = await check();
+      const current = await backend.check();
       if (automatic && !current.needsInstall) return;
-      const fingerprint = createHash('sha256')
-        .update(await readFile(installer))
-        .update(await readFile(path.join(paths.integrationDir, 'Write-AgentEvent.ps1')))
-        .update(await readFile(path.join(paths.integrationDir, 'ProcessOwner.cs')))
-        .digest('hex');
+      const hash = createHash('sha256');
+      for (const file of backend.files) hash.update(await readFile(file));
+      const fingerprint = hash.digest('hex');
       if (automatic) {
         try {
           if (JSON.parse(await readFile(preferenceFile, 'utf8')).deferred === fingerprint) return;
@@ -85,7 +50,7 @@ export function createIntegrationSetup(win: BrowserWindow, paths: SetupPaths) {
           '\n\n' +
           (current.needsInstall
             ? 'Agent Status sẽ cài bộ ghi trạng thái và thêm hooks vào cấu hình Claude / Codex trên máy này. Cấu hình hiện có được sao lưu và giữ lại.\n\nSau khi cài, Codex cần bạn Trust hooks một lần và dùng phiên CLI mới.'
-            : nextSteps),
+            : nextSteps(backend.writerName)),
         buttons: current.needsInstall ? ['Cài đặt kết nối', 'Để sau'] : ['Đóng', 'Cài lại kết nối'],
         defaultId: 0,
         cancelId: current.needsInstall ? 1 : 0,
@@ -95,8 +60,9 @@ export function createIntegrationSetup(win: BrowserWindow, paths: SetupPaths) {
         if (automatic) await writeFile(preferenceFile, JSON.stringify({ deferred: fingerprint }));
         return;
       }
-      await run('-Apply');
-      if ((await check()).needsInstall) throw new Error('Cấu hình sau khi cài chưa đầy đủ.');
+      await backend.apply();
+      if ((await backend.check()).needsInstall)
+        throw new Error('Cấu hình sau khi cài chưa đầy đủ.');
       await writeFile(preferenceFile, '{}');
       if (win.isDestroyed()) return;
       await dialog.showMessageBox(win, {
@@ -104,7 +70,7 @@ export function createIntegrationSetup(win: BrowserWindow, paths: SetupPaths) {
         title: 'Agent Status',
         message: 'Đã cài kết nối',
         detail:
-          nextSteps +
+          nextSteps(backend.writerName) +
           '\n\nĐèn sẽ sáng khi nhận sự kiện từ CLI. Bạn có thể xem lại hướng dẫn ở menu khay hệ thống → Thiết lập kết nối.',
         buttons: ['Đã hiểu'],
       });

@@ -28,5 +28,12 @@ export default defineConfig(
     files: ['src/renderer/**/*.ts'],
     languageOptions: { globals: globals.browser },
   },
+  {
+    files: ['integration/mac/*.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: { ObjC: 'readonly', $: 'readonly' },
+    },
+  },
   prettier,
 );

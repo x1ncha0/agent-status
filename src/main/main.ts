@@ -7,6 +7,7 @@ import { trayTooltip } from './tray-tooltip';
 import { FileMonitor } from '../monitor/file-monitor';
 import { classifyClaude } from '../monitor/claude';
 import { classifyCodex } from '../monitor/codex';
+import { createWindowsBackend } from './integration-backend';
 import { createIntegrationSetup } from './integration';
 import { createAttentionNotifier } from './attention';
 import { cleanupPreviousUpdate, createUpdater } from './updater';
@@ -25,7 +26,7 @@ else
       new FileMonitor(path.join(dataDir, 'events/codex'), 'codex', classifyCodex),
     ];
     const win = createWindow(dataDir);
-    const setup = createIntegrationSetup(win, {
+    const setupPaths = {
       dataDir,
       integrationDir: path.join(
         app.isPackaged ? process.resourcesPath : path.join(__dirname, '../..'),
@@ -36,7 +37,12 @@ else
         process.env.AGENT_STATUS_CODEX_HOME ||
         process.env.CODEX_HOME ||
         path.join(app.getPath('home'), '.codex'),
-    });
+    };
+    const setup = createIntegrationSetup(
+      win,
+      dataDir,
+      process.platform === 'win32' ? createWindowsBackend(setupPaths) : undefined,
+    );
     const snapshot = () => monitors.map((monitor) => monitor.snapshot());
     ipcMain.handle('status:get', snapshot);
     let ready = false;
