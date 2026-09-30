@@ -18,8 +18,8 @@
     "test": "npm run build && node --test dist/tests/*.test.js",
     "smoke": "npm run build && electron scripts/smoke.cjs",
     "dist": "npm run dist:win",
-    "dist:win": "npm run build && electron-builder --win portable --x64 && node scripts/package-files.cjs",
-    "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64 && node scripts/package-files.cjs"
+    "dist:win": "npm run build && electron-builder --win portable --x64 --publish never && node scripts/package-files.cjs",
+    "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64 --publish never && node scripts/package-files.cjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -65,6 +65,7 @@
       "category": "public.app-category.developer-tools",
       "icon": "assets/icon-mac.png",
       "identity": "-",
+      "hardenedRuntime": false,
       "extendInfo": {
         "LSUIElement": true
       }
